@@ -313,7 +313,10 @@ function writeNumber(xml, ref, num) {
  * calc-mode/viewer combinations do not honor fullCalcOnLoad reliably).
  * Throws if the cell doesn't exist or doesn't actually hold a formula
  * (refuses to turn a plain value cell into a fake "formula" via this path --
- * that's writeNumber's job).
+ * that's writeNumber's job). `num` may also be a string, for a formula that
+ * legitimately returns text (e.g. an IF() chain returning a label) -- that
+ * cell must already be t="str" (this function never changes what KIND of
+ * result the formula produces, only refreshes the cached value to match).
  */
 function refreshFormulaCache(xml, ref, num) {
   const cell = findCell(xml, ref);
@@ -321,17 +324,21 @@ function refreshFormulaCache(xml, ref, num) {
   const inner = cell.match.endsWith("/>") ? "" : extractInner(cell.match);
   const fMatch = inner.match(/<f[^>]*\/>|<f[^>]*>[\s\S]*?<\/f>/);
   if (!fMatch) throw new Error("수식 셀이 아닙니다 (refreshFormulaCache는 기존 수식의 캐시값만 갱신합니다): " + ref);
-  // valid number -> plain numeric cell (t= attr dropped); NaN/Infinity (the
-  // formula would itself error, e.g. #DIV/0!) -> mark as an error cell so
-  // Excel doesn't display a bogus number masquerading as a real result.
+  // valid number -> plain numeric cell (t= attr dropped); string -> text
+  // formula result (t="str"); NaN/Infinity (the formula would itself error,
+  // e.g. #DIV/0!) -> mark as an error cell so Excel doesn't display a bogus
+  // number masquerading as a real result.
   const attrs = stripTypeAttr(cell.attrs);
-  let newInner;
-  if (typeof num === "number" && Number.isFinite(num)) {
+  let newInner, newAttrs;
+  if (typeof num === "string") {
+    newInner = fMatch[0] + "<v>" + escapeXmlText(num) + "</v>";
+    newAttrs = attrs + ' t="str"';
+  } else if (typeof num === "number" && Number.isFinite(num)) {
     newInner = fMatch[0] + "<v>" + formatNumber(num) + "</v>";
-    var newAttrs = attrs;
+    newAttrs = attrs;
   } else {
     newInner = fMatch[0] + "<v>#VALUE!</v>";
-    var newAttrs = attrs + ' t="e"';
+    newAttrs = attrs + ' t="e"';
   }
   const replacement = "<c r=\"" + ref + "\"" + newAttrs + ">" + newInner + "</c>";
   return xml.slice(0, cell.index) + replacement + xml.slice(cell.index + cell.match.length);
@@ -930,6 +937,16 @@ const SELLIN_HEADER_TEXT = {
 // TTL's own formula (SUM(AO:AS)) auto-adjusted for this on its own, but
 // CD/CE (Confirm/InProd, used by unrelated 생산일수 formulas further right)
 // shifted to CE/CF and have to be hardcoded at their new letters here too.
+// NOTE on CP/CQ (Confirm/InProd): these were CE/CF until the user had 7
+// columns (AX:CI -- the 재고 커버리지 block, 2026-10) inserted directly in
+// front of what was then column AX (CE(83)+7=90=CL, CF(84)+7=91=CM), and
+// THEN a second round (same month) added 4 more columns (2 before the old
+// BA, 2 before the old BD) to fit a 리드타임-aware 여유개월/주문데드라인월
+// pair onto each of the two coverage blocks -- that shift pushed CL/CM to
+// CL+4=CP(90+4=94), CM+4=CQ(91+4=95). If 오더_선적's columns are ever
+// restructured again, re-derive these the same way (or better: resolve by
+// header text like resolveSellinHeaderCols does for the SOURCE side --
+// this destination side still doesn't, same limitation as before).
 const SELLIN_MAP = [
   ["AO", "ATP"],
   ["AP", "AtDock"],
@@ -938,8 +955,8 @@ const SELLIN_MAP = [
   ["AS", "Factory"],
   ["AU", "W"],
   ["AV", "W1"],
-  ["CE", "Confirm"],
-  ["CF", "InProd"],
+  ["CP", "Confirm"],
+  ["CQ", "InProd"],
 ];
 
 // Scans Sheet0's row 1 and resolves each SELLIN_HEADER_TEXT key to whatever
@@ -1081,25 +1098,100 @@ function scanSellinSums(sheetXml, sharedStrings, resolvedCol) {
   return { byCorpAndMcode, byMcodeOnly };
 }
 
+// Column letters below reflect the 2026-10 layout, AFTER the user had 7
+// columns (the AX:CI 재고 커버리지 block + 1 blank spacer) inserted directly
+// in front of what was then column AX. Everything at/after old-AX shifted
+// right by 7 (old AX/AY/AZ -> BE/BF/BG, old BD/BE -> BK/BL, old BI/BJ ->
+// BP/BQ); AO:AV, AD and AI:AN are all BEFORE the insertion point and were
+// not affected. If 오더_선적 is restructured again, these need re-deriving
+// the same way (see colLetter/the insert script) -- this destination side
+// still isn't resolved by header text, same pre-existing limitation as
+// SELLIN_MAP above.
+//
 // After writing this row's ATP/AtDock/OnWater/CY/Factory, several OTHER
-// 오더_선적 cells hold live formulas whose inputs just changed:
-//   AT (TTL)  = ATP+AtDock+OnWater+CY+Factory
-//   BI        = (CY+Factory) - BD
-//   BJ        = AT - BE
-//   AX        = BJ
-//   AY        = IFERROR(CEILING(AX,AD), AX) then MAX(that, AX)
-//   AZ        = AY / AD
-// (BD/BE/AD are read-only here -- this engine never writes them, they come
-// from the master's own pre-existing formulas/values and are trusted as-is.)
-// Relying on Excel to recalculate these on open is NOT reliable enough in
-// practice (fullCalcOnLoad is set on the workbook, but some Excel
-// calc-mode/viewer combinations still show the old cached number until a
-// manual recalc) -- so every cell in this chain gets its CACHED value
-// refreshed here, immediately, in addition to whatever Excel does later.
-// The underlying <f> formula text itself is never touched, only its cached
-// <v> -- if the user's own Excel ever changes any of these formulas, the
-// next run picks up the new text as-is (XP.findCell/readCell always re-read
-// whatever is currently in the XML).
+// 오더_선적 cells hold live formulas whose inputs just changed. Column
+// letters below reflect the 2026-10 layout AFTER TWO rounds of column
+// inserts that month: round 1 put the AX:BC 재고 커버리지 block + 1 blank
+// spacer in front of what was then column AX (shifting old AX/AY/AZ ->
+// BE/BF/BG, old BD/BE -> BK/BL, old BI/BJ -> BP/BQ); round 2 then inserted
+// 2 more columns before the old BA and 2 more before the old BD to fit a
+// 리드타임-aware 여유개월/주문데드라인월 pair onto EACH coverage stage,
+// shifting everything from the old BA onward by a further +2 or +4 (see
+// the SELLIN_MAP comment above for the exact derivation). Current layout:
+//   AT (TTL)              = ATP+AtDock+OnWater+CY+Factory
+//   AX (가용재고)           = ATP+AtDock+OnWater+CY
+//   AY/AZ                 = 소진예상월/커버리지(개월), 1단계, derived from AX vs AI:AN
+//   BA/BB (NEW, 2026-10)   = 여유개월/주문데드라인월, 1단계 = AZ - 법인별 리드타임
+//   BC (2차가용재고)        = AX + Factory
+//   BD/BE                 = 소진예상월/커버리지(개월), 2단계, derived from BC vs AI:AN
+//   BF/BG (NEW, 2026-10)   = 여유개월/주문데드라인월, 2단계 = BE - 법인별 리드타임
+//   BT (오더 필요량 input)  = (CY+Factory) - BO   [BO = EPC(목표), read-only]
+//   BU                    = AT - BP               [BP = TTL(목표), read-only]
+//   BI                    = BU (pass-through)
+//   BJ                    = IFERROR(CEILING(BI,AD), BI) then MAX(that, BI)
+//   BK                    = BJ / AD
+// (BO/BP/AD/AI:AN/B(법인) are read-only here -- this engine never writes
+// them, they come from the master's own pre-existing formulas/values and
+// are trusted as-is.) Relying on Excel to recalculate these on open is NOT
+// reliable enough in practice (fullCalcOnLoad is set on the workbook, but
+// some Excel calc-mode/viewer combinations still show the old cached
+// number until a manual recalc) -- so every cell in this chain gets its
+// CACHED value refreshed here, immediately, in addition to whatever Excel
+// does later. The underlying <f> formula text itself is never touched,
+// only its cached <v> -- if the user's own Excel ever changes any of these
+// formulas, the next run picks up the new text as-is (XP.findCell/readCell
+// always re-read whatever is currently in the XML). If 오더_선적 is
+// restructured again, these need re-deriving the same way (see
+// colLetter/the insert script) -- this destination side still isn't
+// resolved by header text, same pre-existing limitation as SELLIN_MAP.
+const COVERAGE_MONTH_COLS = ["AI", "AJ", "AK", "AL", "AM", "AN"]; // Oct'26 .. Mar'27
+const COVERAGE_MONTH_LABELS = ["10월", "11월", "12월", "27년 1월", "27년 2월", "27년 3월"];
+
+// 해운 리드타임 (개월) -- 법인 텍스트는 CORP_MAP과 동일한 표기("Netherland"/
+// "Spain")를 그대로 쓴다. 다른 법인(JP/HQ 등)은 리드타임 미정이라 0개월로
+// 둔다 (여유개월 = 커버리지개월 그대로, 당장은 긴급도 계산에서 제외되는 셈).
+// 2026-10: 네덜란드 리드타임 12주(3개월) -> 14주로 수정 (사용자 확인).
+// 4주=1개월 근사를 그대로 적용해 14주=3.5개월로 환산 (기존 12주=3개월,
+// 8주=2개월과 동일한 환산 방식).
+const LEADTIME_MONTHS_BY_CORP = { Netherland: 3.5, Spain: 2 };
+
+function leadTimeMonths(corp) {
+  return LEADTIME_MONTHS_BY_CORP[corp] || 0;
+}
+
+// Excel 쪽 라이브 수식과 동일한 결과를 내도록 맞춘 캐시값 계산:
+//   =IFERROR(TEXT(EDATE(TODAY(),ROUNDDOWN(buffer,0)),"yy")&"년 "&TEXT(EDATE(TODAY(),ROUNDDOWN(buffer,0)),"m")&"월","-")
+// ROUNDDOWN(x,0)은 0 방향으로 절삭 -- JS의 Math.trunc와 동일한 동작.
+function deadlineLabel(bufferMonths) {
+  if (!Number.isFinite(bufferMonths)) return "-";
+  const now = new Date();
+  const off = Math.trunc(bufferMonths);
+  const totalMonthIndex = now.getFullYear() * 12 + now.getMonth() + off;
+  const y = Math.floor(totalMonthIndex / 12);
+  const m = ((totalMonthIndex % 12) + 12) % 12;
+  const yy = String(((y % 100) + 100) % 100).padStart(2, "0");
+  return yy + "년 " + (m + 1) + "월";
+}
+
+// "마지막 완전 커버 월" 방식 (2026-10 수정: 그 전엔 "누적수요를 처음 초과하는
+// 달"을 그대로 소진예상월로 썼는데, 그 달을 일부(예: 16%)만 채워도 "그 달까지
+// 버틴다"고 보여서 사용자 지적대로 과장된 표현이었다. 이제는 누적수요가 처음
+// 가용재고를 초과하는 달의 "바로 전 달"까지만 완전히 커버된 것으로 본다 --
+// k=0(10월조차 완전 커버 못함)이면 "10월 미만"/0개월. 전부(6개월) 다 커버되면
+// 마지막 달(3월) 자체가 라벨이고 months=6. 더 이상 소수점 없음 (몇 개월을
+// "완전히" 버티는지만 센다 -- 부분 커버는 버틴 걸로 안 침).
+function coverageLabelAndMonths(stock, monthVals) {
+  let cum = 0;
+  for (let k = 0; k < monthVals.length; k++) {
+    cum += monthVals[k];
+    if (stock < cum) {
+      if (k === 0) return { label: COVERAGE_MONTH_LABELS[0] + " 미만", months: 0 };
+      return { label: COVERAGE_MONTH_LABELS[k - 1], months: k };
+    }
+  }
+  return { label: COVERAGE_MONTH_LABELS[COVERAGE_MONTH_LABELS.length - 1], months: monthVals.length };
+}
+
 function refreshDownstreamFormulaCache(ofXml, r, s, masterShared) {
   const ttl = s.ATP + s.AtDock + s.OnWater + s.CY + s.Factory;
   if (XP.findCell(ofXml, "AT" + r)) {
@@ -1108,37 +1200,104 @@ function refreshDownstreamFormulaCache(ofXml, r, s, masterShared) {
     } catch (e) {}
   }
 
-  const bdCell = XP.readCell(ofXml, "BD" + r, masterShared);
-  const bd = bdCell.kind === "number" && Number.isFinite(bdCell.value) ? bdCell.value : null;
-  if (bd != null && XP.findCell(ofXml, "BI" + r)) {
+  const corpCell = XP.readCell(ofXml, "B" + r, masterShared);
+  const corp = corpCell.kind === "string" ? corpCell.value : "";
+  const lt = leadTimeMonths(corp);
+
+  // 재고 커버리지 (가용재고 / Factory 포함 2차) -- both stages read the same
+  // monthly MR, never touched by this pipeline, just re-read fresh here.
+  const monthVals = COVERAGE_MONTH_COLS.map((c) => {
+    const cell = XP.readCell(ofXml, c + r, masterShared);
+    return cell.kind === "number" && Number.isFinite(cell.value) ? cell.value : 0;
+  });
+  const stock1 = s.ATP + s.AtDock + s.OnWater + s.CY;
+  const stock2 = stock1 + s.Factory;
+  if (XP.findCell(ofXml, "AX" + r)) {
     try {
-      ofXml = XP.refreshFormulaCache(ofXml, "BI" + r, s.CY + s.Factory - bd);
+      ofXml = XP.refreshFormulaCache(ofXml, "AX" + r, stock1);
+    } catch (e) {}
+  }
+  let c1months = null;
+  if (XP.findCell(ofXml, "AY" + r) && XP.findCell(ofXml, "AZ" + r)) {
+    const c1 = coverageLabelAndMonths(stock1, monthVals);
+    c1months = c1.months;
+    try {
+      ofXml = XP.refreshFormulaCache(ofXml, "AY" + r, c1.label);
+    } catch (e) {}
+    try {
+      ofXml = XP.refreshFormulaCache(ofXml, "AZ" + r, c1.months);
+    } catch (e) {}
+  }
+  // 여유개월/주문데드라인월, 1단계 (NEW, 2026-10 리드타임 반영)
+  if (c1months != null && XP.findCell(ofXml, "BA" + r) && XP.findCell(ofXml, "BB" + r)) {
+    const buf1 = c1months - lt;
+    try {
+      ofXml = XP.refreshFormulaCache(ofXml, "BA" + r, buf1);
+    } catch (e) {}
+    try {
+      ofXml = XP.refreshFormulaCache(ofXml, "BB" + r, deadlineLabel(buf1));
     } catch (e) {}
   }
 
-  const beCell = XP.readCell(ofXml, "BE" + r, masterShared);
-  const be = beCell.kind === "number" && Number.isFinite(beCell.value) ? beCell.value : null;
-  if (be != null && XP.findCell(ofXml, "BJ" + r)) {
-    const bj = ttl - be;
+  if (XP.findCell(ofXml, "BC" + r)) {
     try {
-      ofXml = XP.refreshFormulaCache(ofXml, "BJ" + r, bj);
+      ofXml = XP.refreshFormulaCache(ofXml, "BC" + r, stock2);
     } catch (e) {}
-    if (XP.findCell(ofXml, "AX" + r)) {
+  }
+  let c2months = null;
+  if (XP.findCell(ofXml, "BD" + r) && XP.findCell(ofXml, "BE" + r)) {
+    const c2 = coverageLabelAndMonths(stock2, monthVals);
+    c2months = c2.months;
+    try {
+      ofXml = XP.refreshFormulaCache(ofXml, "BD" + r, c2.label);
+    } catch (e) {}
+    try {
+      ofXml = XP.refreshFormulaCache(ofXml, "BE" + r, c2.months);
+    } catch (e) {}
+  }
+  // 여유개월/주문데드라인월, 2단계 (NEW, 2026-10 리드타임 반영)
+  if (c2months != null && XP.findCell(ofXml, "BF" + r) && XP.findCell(ofXml, "BG" + r)) {
+    const buf2 = c2months - lt;
+    try {
+      ofXml = XP.refreshFormulaCache(ofXml, "BF" + r, buf2);
+    } catch (e) {}
+    try {
+      ofXml = XP.refreshFormulaCache(ofXml, "BG" + r, deadlineLabel(buf2));
+    } catch (e) {}
+  }
+
+  // 오더 필요량 체인 (BO/BP read-only target figures -> BT/BU -> BI/BJ/BK)
+  const boCell = XP.readCell(ofXml, "BO" + r, masterShared);
+  const bo = boCell.kind === "number" && Number.isFinite(boCell.value) ? boCell.value : null;
+  if (bo != null && XP.findCell(ofXml, "BT" + r)) {
+    try {
+      ofXml = XP.refreshFormulaCache(ofXml, "BT" + r, s.CY + s.Factory - bo);
+    } catch (e) {}
+  }
+
+  const bpCell = XP.readCell(ofXml, "BP" + r, masterShared);
+  const bp = bpCell.kind === "number" && Number.isFinite(bpCell.value) ? bpCell.value : null;
+  if (bp != null && XP.findCell(ofXml, "BU" + r)) {
+    const bu = ttl - bp;
+    try {
+      ofXml = XP.refreshFormulaCache(ofXml, "BU" + r, bu);
+    } catch (e) {}
+    if (XP.findCell(ofXml, "BI" + r)) {
       try {
-        ofXml = XP.refreshFormulaCache(ofXml, "AX" + r, bj);
+        ofXml = XP.refreshFormulaCache(ofXml, "BI" + r, bu);
       } catch (e) {}
       const adCell = XP.readCell(ofXml, "AD" + r, masterShared);
       const ad = adCell.kind === "number" && Number.isFinite(adCell.value) ? adCell.value : null;
-      let ay = bj; // IFERROR(...) fallback when AD is missing/zero, same as the live formula would do
-      if (ad) ay = Math.max(Math.ceil(bj / ad) * ad, bj);
-      if (XP.findCell(ofXml, "AY" + r)) {
+      let bj = bu; // IFERROR(...) fallback when AD is missing/zero, same as the live formula would do
+      if (ad) bj = Math.max(Math.ceil(bu / ad) * ad, bu);
+      if (XP.findCell(ofXml, "BJ" + r)) {
         try {
-          ofXml = XP.refreshFormulaCache(ofXml, "AY" + r, ay);
+          ofXml = XP.refreshFormulaCache(ofXml, "BJ" + r, bj);
         } catch (e) {}
       }
-      if (ad && XP.findCell(ofXml, "AZ" + r)) {
+      if (ad && XP.findCell(ofXml, "BK" + r)) {
         try {
-          ofXml = XP.refreshFormulaCache(ofXml, "AZ" + r, ay / ad);
+          ofXml = XP.refreshFormulaCache(ofXml, "BK" + r, bj / ad);
         } catch (e) {}
       }
     }
