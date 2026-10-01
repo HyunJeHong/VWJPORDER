@@ -943,20 +943,26 @@ const SELLIN_HEADER_TEXT = {
 // THEN a second round (same month) added 4 more columns (2 before the old
 // BA, 2 before the old BD) to fit a 리드타임-aware 여유개월/주문데드라인월
 // pair onto each of the two coverage blocks -- that shift pushed CL/CM to
-// CL+4=CP(90+4=94), CM+4=CQ(91+4=95). If 오더_선적's columns are ever
-// restructured again, re-derive these the same way (or better: resolve by
-// header text like resolveSellinHeaderCols does for the SOURCE side --
-// this destination side still doesn't, same limitation as before).
+// CL+4=CP(90+4=94), CM+4=CQ(91+4=95).
+// 2026-10, LATER round (MR_순수 extended through Dec'27): 9 more monthly MR
+// pull-through columns were inserted directly in front of what was then
+// column AO (the first SELLIN_MAP destination), shifting EVERY column at
+// or after old-AO right by +9: AO->AX, AP->AY, AQ->AZ, AR->BA, AS->BB,
+// AU->BD, AV->BE, CP->CY, CQ->CZ. AD and AI:AN stayed BEFORE the insertion
+// point and are unaffected. If 오더_선적's columns are ever restructured
+// again, re-derive these the same way (or better: resolve by header text
+// like resolveSellinHeaderCols does for the SOURCE side -- this
+// destination side still doesn't, same limitation as before).
 const SELLIN_MAP = [
-  ["AO", "ATP"],
-  ["AP", "AtDock"],
-  ["AQ", "OnWater"],
-  ["AR", "CY"],
-  ["AS", "Factory"],
-  ["AU", "W"],
-  ["AV", "W1"],
-  ["CP", "Confirm"],
-  ["CQ", "InProd"],
+  ["AX", "ATP"],
+  ["AY", "AtDock"],
+  ["AZ", "OnWater"],
+  ["BA", "CY"],
+  ["BB", "Factory"],
+  ["BD", "W"],
+  ["BE", "W1"],
+  ["CY", "Confirm"],
+  ["CZ", "InProd"],
 ];
 
 // Scans Sheet0's row 1 and resolves each SELLIN_HEADER_TEXT key to whatever
@@ -1098,217 +1104,266 @@ function scanSellinSums(sheetXml, sharedStrings, resolvedCol) {
   return { byCorpAndMcode, byMcodeOnly };
 }
 
-// Column letters below reflect the 2026-10 layout, AFTER the user had 7
-// columns (the AX:CI 재고 커버리지 block + 1 blank spacer) inserted directly
-// in front of what was then column AX. Everything at/after old-AX shifted
-// right by 7 (old AX/AY/AZ -> BE/BF/BG, old BD/BE -> BK/BL, old BI/BJ ->
-// BP/BQ); AO:AV, AD and AI:AN are all BEFORE the insertion point and were
-// not affected. If 오더_선적 is restructured again, these need re-deriving
-// the same way (see colLetter/the insert script) -- this destination side
-// still isn't resolved by header text, same pre-existing limitation as
-// SELLIN_MAP above.
-//
-// After writing this row's ATP/AtDock/OnWater/CY/Factory, several OTHER
-// 오더_선적 cells hold live formulas whose inputs just changed. Column
-// letters below reflect the 2026-10 layout AFTER TWO rounds of column
-// inserts that month: round 1 put the AX:BC 재고 커버리지 block + 1 blank
-// spacer in front of what was then column AX (shifting old AX/AY/AZ ->
-// BE/BF/BG, old BD/BE -> BK/BL, old BI/BJ -> BP/BQ); round 2 then inserted
-// 2 more columns before the old BA and 2 more before the old BD to fit a
-// 리드타임-aware 여유개월/주문데드라인월 pair onto EACH coverage stage,
-// shifting everything from the old BA onward by a further +2 or +4 (see
-// the SELLIN_MAP comment above for the exact derivation). Current layout:
-//   AT (TTL)              = ATP+AtDock+OnWater+CY+Factory
-//   AX (가용재고)           = ATP+AtDock+OnWater+CY
-//   AY/AZ                 = 소진예상월/커버리지(개월), 1단계, derived from AX vs AI:AN
-//   BA/BB (NEW, 2026-10)   = 여유개월/주문데드라인월, 1단계 = AZ - 법인별 리드타임
-//   BC (2차가용재고)        = AX + Factory
-//   BD/BE                 = 소진예상월/커버리지(개월), 2단계, derived from BC vs AI:AN
-//   BF/BG (NEW, 2026-10)   = 여유개월/주문데드라인월, 2단계 = BE - 법인별 리드타임
-//   BT (오더 필요량 input)  = (CY+Factory) - BO   [BO = EPC(목표), read-only]
-//   BU                    = AT - BP               [BP = TTL(목표), read-only]
-//   BI                    = BU (pass-through)
-//   BJ                    = IFERROR(CEILING(BI,AD), BI) then MAX(that, BI)
-//   BK                    = BJ / AD
-// (BO/BP/AD/AI:AN/B(법인) are read-only here -- this engine never writes
-// them, they come from the master's own pre-existing formulas/values and
-// are trusted as-is.) Relying on Excel to recalculate these on open is NOT
+// 2026-10, LATEST round: the old month-based nested-IF coverage/leadtime/
+// deadline logic (AY/AZ/BA/BB and BD/BE/BF/BG, hardcoded to a fixed
+// Oct'26-Mar'27 window) was replaced entirely with a week-precision engine
+// -- see the "Weekly coverage engine" block below. The +9 column shift from
+// the MR_순수 Dec'27 extension (see the SELLIN_MAP comment above) applies
+// here too. Current layout (all letters are the NEW, post-shift ones):
+//   BC (TTL)               = ATP+AtDock+OnWater+CY+Factory
+//   BG (가용재고/stock1)     = ATP+AtDock+OnWater+CY
+//   BH/BI                  = 소진예상시점/커버리지(주), 1단계 -- from the weekly engine
+//   BJ/BK                  = 여유(주)/주문데드라인(주차), 1단계
+//   BL (2차가용재고/stock2)  = BG + Factory
+//   BM/BN                  = 소진예상시점/커버리지(주), 2단계
+//   BO/BP                  = 여유(주)/주문데드라인(주차), 2단계
+//   CC (오더 필요량 input)   = (CY+Factory) - BX   [BX = EPC(목표), read-only]
+//   CD                     = BC(TTL) - BY          [BY = TTL(목표), read-only]
+//   BR                     = CD (pass-through)
+//   BS                     = IFERROR(CEILING(BR,AD), BR) then MAX(that, BR)
+//   BT                     = BS / AD
+// (BX/BY/AD/B(법인) are read-only here -- this engine never writes them,
+// they come from the master's own pre-existing formulas/values and are
+// trusted as-is.) Relying on Excel to recalculate these on open is NOT
 // reliable enough in practice (fullCalcOnLoad is set on the workbook, but
 // some Excel calc-mode/viewer combinations still show the old cached
-// number until a manual recalc) -- so every cell in this chain gets its
+// number until a manual recalc) -- so every cell in this chain, AND the
+// matching row in the hidden "주간커버리지_계산" helper sheet (whose own
+// cells are what BH:BP's live formulas actually reference), gets its
 // CACHED value refreshed here, immediately, in addition to whatever Excel
 // does later. The underlying <f> formula text itself is never touched,
-// only its cached <v> -- if the user's own Excel ever changes any of these
-// formulas, the next run picks up the new text as-is (XP.findCell/readCell
-// always re-read whatever is currently in the XML). If 오더_선적 is
-// restructured again, these need re-deriving the same way (see
-// colLetter/the insert script) -- this destination side still isn't
+// only its cached <v>. If 오더_선적 or the helper sheet is restructured
+// again, these need re-deriving the same way (see colLetter/the insert
+// script, and build_weekly_system.py in the scratchpad which generated the
+// helper sheet's formulas originally) -- this destination side still isn't
 // resolved by header text, same pre-existing limitation as SELLIN_MAP.
-const COVERAGE_MONTH_COLS = ["AI", "AJ", "AK", "AL", "AM", "AN"]; // Oct'26 .. Mar'27
-const COVERAGE_MONTH_LABELS = ["10월", "11월", "12월", "27년 1월", "27년 2월", "27년 3월"];
 
-// 해운 리드타임 (개월) -- 법인 텍스트는 CORP_MAP과 동일한 표기("Netherland"/
-// "Spain")를 그대로 쓴다. 다른 법인(JP/HQ 등)은 리드타임 미정이라 0개월로
-// 둔다 (여유개월 = 커버리지개월 그대로, 당장은 긴급도 계산에서 제외되는 셈).
-// 2026-10: 네덜란드 리드타임 12주(3개월) -> 14주로 수정 (사용자 확인).
-// 4주=1개월 근사를 그대로 적용해 14주=3.5개월로 환산 (기존 12주=3개월,
-// 8주=2개월과 동일한 환산 방식).
-const LEADTIME_MONTHS_BY_CORP = { Netherland: 3.5, Spain: 2 };
+// ---- Weekly coverage engine (2026-10 재설계) ----
+// Mirrors the hidden "주간커버리지_계산" helper sheet's own Excel formulas
+// EXACTLY: same "last fully covered week" logic (a COUNTIF-equivalent
+// count over MR_순수's 123 raw weekly columns K:EC, not an early break, so
+// this matches Excel's COUNTIF semantics even if a weekly figure were ever
+// negative), same lead time in exact weeks, same "몇월 몇주차" label format
+// (week-of-month = ROUNDUP(day-of-Monday/7), year prefix omitted only when
+// the week's Monday falls in the current calendar year). If the helper
+// sheet's formulas are ever changed by hand in the master, this needs to
+// be re-derived to match.
+const WEEKLY_HELPER_SHEET = "주간커버리지_계산";
+const WEEK_DATA_START_COL = 11; // K -- MR_순수's first weekly column
+const WEEK_DATA_N = 123; // K..EC
+const LEADTIME_WEEKS_BY_CORP = { Netherland: 14, Spain: 8 };
 
-function leadTimeMonths(corp) {
-  return LEADTIME_MONTHS_BY_CORP[corp] || 0;
+function leadTimeWeeks(corp) {
+  return LEADTIME_WEEKS_BY_CORP[corp] || 0;
 }
 
-// Excel 쪽 라이브 수식과 동일한 결과를 내도록 맞춘 캐시값 계산:
-//   =IFERROR(TEXT(EDATE(TODAY(),ROUNDDOWN(buffer,0)),"yy")&"년 "&TEXT(EDATE(TODAY(),ROUNDDOWN(buffer,0)),"m")&"월","-")
-// ROUNDDOWN(x,0)은 0 방향으로 절삭 -- JS의 Math.trunc와 동일한 동작.
-function deadlineLabel(bufferMonths) {
-  if (!Number.isFinite(bufferMonths)) return "-";
-  const now = new Date();
-  const off = Math.trunc(bufferMonths);
-  const totalMonthIndex = now.getFullYear() * 12 + now.getMonth() + off;
-  const y = Math.floor(totalMonthIndex / 12);
-  const m = ((totalMonthIndex % 12) + 12) % 12;
-  const yy = String(((y % 100) + 100) % 100).padStart(2, "0");
-  return yy + "년 " + (m + 1) + "월";
+function addDaysUTC(d, days) {
+  return new Date(d.getTime() + days * 86400000);
 }
 
-// "마지막 완전 커버 월" 방식 (2026-10 수정: 그 전엔 "누적수요를 처음 초과하는
-// 달"을 그대로 소진예상월로 썼는데, 그 달을 일부(예: 16%)만 채워도 "그 달까지
-// 버틴다"고 보여서 사용자 지적대로 과장된 표현이었다. 이제는 누적수요가 처음
-// 가용재고를 초과하는 달의 "바로 전 달"까지만 완전히 커버된 것으로 본다 --
-// k=0(10월조차 완전 커버 못함)이면 "10월 미만"/0개월. 전부(6개월) 다 커버되면
-// 마지막 달(3월) 자체가 라벨이고 months=6. 더 이상 소수점 없음 (몇 개월을
-// "완전히" 버티는지만 센다 -- 부분 커버는 버틴 걸로 안 침).
-function coverageLabelAndMonths(stock, monthVals) {
-  let cum = 0;
-  for (let k = 0; k < monthVals.length; k++) {
-    cum += monthVals[k];
-    if (stock < cum) {
-      if (k === 0) return { label: COVERAGE_MONTH_LABELS[0] + " 미만", months: 0 };
-      return { label: COVERAGE_MONTH_LABELS[k - 1], months: k };
-    }
+// Excel WEEKDAY(date,3): Monday=0 .. Sunday=6
+function isoMondayOffset(d) {
+  const jsDay = d.getUTCDay(); // Sun=0..Sat=6
+  return (jsDay + 6) % 7;
+}
+
+function weekOfMonthLabel(d, nowUtc) {
+  const y = d.getUTCFullYear();
+  const m = d.getUTCMonth() + 1;
+  const weekNo = Math.ceil(d.getUTCDate() / 7);
+  return (y === nowUtc.getUTCFullYear() ? "" : (y % 100) + "년 ") + m + "월 " + weekNo + "주차";
+}
+
+/**
+ * Reads MR_순수's 123 raw weekly cells (K..EC) for one row and returns the
+ * demand-only pieces shared by both coverage stages (1차/2차): the running
+ * cumulative-sum array, the anchor date (E1), and "today"'s 1-based week
+ * index t -- all independent of which stock figure is being evaluated.
+ * Blank/text/error weekly cells are coerced to 0, matching the helper
+ * sheet's own N(...) wrapper (MR_순수 legitimately returns "" for weeks
+ * before a source system's valid-data start -- e.g. SAP-sourced rows
+ * before PSI SAP RAW's anchor week).
+ */
+function readWeeklyDemand(mrXml, masterShared, mrRow, nowDate) {
+  const e1Cell = XP.readCell(mrXml, "E1", masterShared);
+  if (e1Cell.kind !== "number") return null;
+  const E1 = XP.excelSerialToUTCDate(e1Cell.value);
+
+  const cum = [];
+  let running = 0;
+  for (let i = 0; i < WEEK_DATA_N; i++) {
+    const col = CU.colLetter(WEEK_DATA_START_COL + i);
+    const cell = XP.readCell(mrXml, col + mrRow, masterShared);
+    const v = cell.kind === "number" && Number.isFinite(cell.value) ? cell.value : 0;
+    running += v;
+    cum.push(running);
   }
-  return { label: COVERAGE_MONTH_LABELS[COVERAGE_MONTH_LABELS.length - 1], months: monthVals.length };
+
+  const now = nowDate || new Date();
+  const nowUtc = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+  const mondayThisWeek = addDaysUTC(nowUtc, -isoMondayOffset(nowUtc));
+  const t = Math.round((mondayThisWeek.getTime() - E1.getTime()) / 86400000 / 7) + 1;
+
+  return { E1, cum, t, nowUtc };
 }
 
-function refreshDownstreamFormulaCache(ofXml, r, s, masterShared) {
+/**
+ * Given the shared weekly-demand pieces (from readWeeklyDemand) and one
+ * stock figure, replicates the helper sheet's EE..ES formulas: last-fully-
+ * covered-week via a COUNTIF-equivalent count, buffer = covered weeks -
+ * lead time (in weeks), and both labels in "몇월 몇주차" form.
+ */
+function coverageForStock(weekly, stock, leadtimeWks) {
+  const { E1, cum, t, nowUtc } = weekly;
+  const dateOfIdx = (idx1) => addDaysUTC(E1, 7 * (idx1 - 1));
+  const cumAt = (idx1) => (idx1 <= 0 ? 0 : cum[Math.min(idx1, cum.length) - 1]);
+  const beforeToday = cumAt(t - 1);
+  const threshold = stock + beforeToday;
+  let J = 0;
+  for (let i = 0; i < cum.length; i++) if (cum[i] <= threshold) J++;
+  const coveredWeeks = Math.max(0, J - t + 1);
+  const buffer = coveredWeeks - leadtimeWks;
+  const deadlineIdx = t + buffer;
+  const exhaustLabel = coveredWeeks === 0 ? weekOfMonthLabel(dateOfIdx(t), nowUtc) + " 미만" : weekOfMonthLabel(dateOfIdx(J), nowUtc);
+  const deadlineLabel = weekOfMonthLabel(dateOfIdx(deadlineIdx), nowUtc);
+  return { t, J, coveredWeeks, buffer, deadlineIdx, exhaustLabel, deadlineLabel, cumAtTMinus1: beforeToday };
+}
+
+/**
+ * Refreshes 오더_선적's row `r` AND the matching row in the hidden
+ * "주간커버리지_계산" helper sheet (same row numbers, 1:1 -- both start at
+ * OF_DATA_ROW_START). `mrXml`/`helperXml` may be null (older master files
+ * predating the weekly redesign) -- the weekly-coverage section is simply
+ * skipped in that case, everything else still refreshes. Returns
+ * { ofXml, helperXml } (helperXml unchanged/null if it wasn't touched).
+ */
+function refreshDownstreamFormulaCache(ofXml, helperXml, mrXml, r, s, masterShared, nowDate) {
   const ttl = s.ATP + s.AtDock + s.OnWater + s.CY + s.Factory;
-  if (XP.findCell(ofXml, "AT" + r)) {
+  if (XP.findCell(ofXml, "BC" + r)) {
     try {
-      ofXml = XP.refreshFormulaCache(ofXml, "AT" + r, ttl);
+      ofXml = XP.refreshFormulaCache(ofXml, "BC" + r, ttl);
     } catch (e) {}
   }
 
   const corpCell = XP.readCell(ofXml, "B" + r, masterShared);
   const corp = corpCell.kind === "string" ? corpCell.value : "";
-  const lt = leadTimeMonths(corp);
+  const lt = leadTimeWeeks(corp);
 
-  // 재고 커버리지 (가용재고 / Factory 포함 2차) -- both stages read the same
-  // monthly MR, never touched by this pipeline, just re-read fresh here.
-  const monthVals = COVERAGE_MONTH_COLS.map((c) => {
-    const cell = XP.readCell(ofXml, c + r, masterShared);
-    return cell.kind === "number" && Number.isFinite(cell.value) ? cell.value : 0;
-  });
   const stock1 = s.ATP + s.AtDock + s.OnWater + s.CY;
   const stock2 = stock1 + s.Factory;
-  if (XP.findCell(ofXml, "AX" + r)) {
+  if (XP.findCell(ofXml, "BG" + r)) {
     try {
-      ofXml = XP.refreshFormulaCache(ofXml, "AX" + r, stock1);
+      ofXml = XP.refreshFormulaCache(ofXml, "BG" + r, stock1);
     } catch (e) {}
   }
-  let c1months = null;
-  if (XP.findCell(ofXml, "AY" + r) && XP.findCell(ofXml, "AZ" + r)) {
-    const c1 = coverageLabelAndMonths(stock1, monthVals);
-    c1months = c1.months;
+  if (XP.findCell(ofXml, "BL" + r)) {
     try {
-      ofXml = XP.refreshFormulaCache(ofXml, "AY" + r, c1.label);
-    } catch (e) {}
-    try {
-      ofXml = XP.refreshFormulaCache(ofXml, "AZ" + r, c1.months);
-    } catch (e) {}
-  }
-  // 여유개월/주문데드라인월, 1단계 (NEW, 2026-10 리드타임 반영)
-  if (c1months != null && XP.findCell(ofXml, "BA" + r) && XP.findCell(ofXml, "BB" + r)) {
-    const buf1 = c1months - lt;
-    try {
-      ofXml = XP.refreshFormulaCache(ofXml, "BA" + r, buf1);
-    } catch (e) {}
-    try {
-      ofXml = XP.refreshFormulaCache(ofXml, "BB" + r, deadlineLabel(buf1));
+      ofXml = XP.refreshFormulaCache(ofXml, "BL" + r, stock2);
     } catch (e) {}
   }
 
-  if (XP.findCell(ofXml, "BC" + r)) {
-    try {
-      ofXml = XP.refreshFormulaCache(ofXml, "BC" + r, stock2);
-    } catch (e) {}
+  const mrRow = r - 2;
+  const weekly = mrXml ? readWeeklyDemand(mrXml, masterShared, mrRow, nowDate) : null;
+  if (weekly) {
+    const cov1 = coverageForStock(weekly, stock1, lt);
+    const cov2 = coverageForStock(weekly, stock2, lt);
+
+    const ofEdits = [
+      ["BH", cov1.exhaustLabel],
+      ["BI", cov1.coveredWeeks],
+      ["BJ", cov1.buffer],
+      ["BK", cov1.deadlineLabel],
+      ["BM", cov2.exhaustLabel],
+      ["BN", cov2.coveredWeeks],
+      ["BO", cov2.buffer],
+      ["BP", cov2.deadlineLabel],
+    ];
+    for (const [col, val] of ofEdits) {
+      if (XP.findCell(ofXml, col + r)) {
+        try {
+          ofXml = XP.refreshFormulaCache(ofXml, col + r, val);
+        } catch (e) {}
+      }
+    }
+
+    if (helperXml && XP.findCell(helperXml, "EE" + r)) {
+      const helperEdits = [
+        ["D", lt],
+        ["E", weekly.t],
+        ["F", stock1],
+        ["G", stock2],
+        ["EE", cov1.cumAtTMinus1],
+        ["EF", stock1 + cov1.cumAtTMinus1],
+        ["EG", cov1.J],
+        ["EH", cov1.coveredWeeks],
+        ["EI", cov1.buffer],
+        ["EJ", cov1.deadlineIdx],
+        ["EK", cov1.exhaustLabel],
+        ["EL", cov1.deadlineLabel],
+        ["EM", stock2 + cov1.cumAtTMinus1],
+        ["EN", cov2.J],
+        ["EO", cov2.coveredWeeks],
+        ["EP", cov2.buffer],
+        ["EQ", cov2.deadlineIdx],
+        ["ER", cov2.exhaustLabel],
+        ["ES", cov2.deadlineLabel],
+      ];
+      for (const [col, val] of helperEdits) {
+        if (XP.findCell(helperXml, col + r)) {
+          try {
+            helperXml = XP.refreshFormulaCache(helperXml, col + r, val);
+          } catch (e) {}
+        }
+      }
+    }
   }
-  let c2months = null;
-  if (XP.findCell(ofXml, "BD" + r) && XP.findCell(ofXml, "BE" + r)) {
-    const c2 = coverageLabelAndMonths(stock2, monthVals);
-    c2months = c2.months;
+
+  // 오더 필요량 체인 (BX/BY read-only target figures -> CC/CD -> BR/BS/BT)
+  const bxCell = XP.readCell(ofXml, "BX" + r, masterShared);
+  const bx = bxCell.kind === "number" && Number.isFinite(bxCell.value) ? bxCell.value : null;
+  if (bx != null && XP.findCell(ofXml, "CC" + r)) {
     try {
-      ofXml = XP.refreshFormulaCache(ofXml, "BD" + r, c2.label);
-    } catch (e) {}
-    try {
-      ofXml = XP.refreshFormulaCache(ofXml, "BE" + r, c2.months);
-    } catch (e) {}
-  }
-  // 여유개월/주문데드라인월, 2단계 (NEW, 2026-10 리드타임 반영)
-  if (c2months != null && XP.findCell(ofXml, "BF" + r) && XP.findCell(ofXml, "BG" + r)) {
-    const buf2 = c2months - lt;
-    try {
-      ofXml = XP.refreshFormulaCache(ofXml, "BF" + r, buf2);
-    } catch (e) {}
-    try {
-      ofXml = XP.refreshFormulaCache(ofXml, "BG" + r, deadlineLabel(buf2));
+      ofXml = XP.refreshFormulaCache(ofXml, "CC" + r, s.CY + s.Factory - bx);
     } catch (e) {}
   }
 
-  // 오더 필요량 체인 (BO/BP read-only target figures -> BT/BU -> BI/BJ/BK)
-  const boCell = XP.readCell(ofXml, "BO" + r, masterShared);
-  const bo = boCell.kind === "number" && Number.isFinite(boCell.value) ? boCell.value : null;
-  if (bo != null && XP.findCell(ofXml, "BT" + r)) {
+  const byCell = XP.readCell(ofXml, "BY" + r, masterShared);
+  const by = byCell.kind === "number" && Number.isFinite(byCell.value) ? byCell.value : null;
+  if (by != null && XP.findCell(ofXml, "CD" + r)) {
+    const cd = ttl - by;
     try {
-      ofXml = XP.refreshFormulaCache(ofXml, "BT" + r, s.CY + s.Factory - bo);
+      ofXml = XP.refreshFormulaCache(ofXml, "CD" + r, cd);
     } catch (e) {}
-  }
-
-  const bpCell = XP.readCell(ofXml, "BP" + r, masterShared);
-  const bp = bpCell.kind === "number" && Number.isFinite(bpCell.value) ? bpCell.value : null;
-  if (bp != null && XP.findCell(ofXml, "BU" + r)) {
-    const bu = ttl - bp;
-    try {
-      ofXml = XP.refreshFormulaCache(ofXml, "BU" + r, bu);
-    } catch (e) {}
-    if (XP.findCell(ofXml, "BI" + r)) {
+    if (XP.findCell(ofXml, "BR" + r)) {
       try {
-        ofXml = XP.refreshFormulaCache(ofXml, "BI" + r, bu);
+        ofXml = XP.refreshFormulaCache(ofXml, "BR" + r, cd);
       } catch (e) {}
       const adCell = XP.readCell(ofXml, "AD" + r, masterShared);
       const ad = adCell.kind === "number" && Number.isFinite(adCell.value) ? adCell.value : null;
-      let bj = bu; // IFERROR(...) fallback when AD is missing/zero, same as the live formula would do
-      if (ad) bj = Math.max(Math.ceil(bu / ad) * ad, bu);
-      if (XP.findCell(ofXml, "BJ" + r)) {
+      let bs = cd; // IFERROR(...) fallback when AD is missing/zero, same as the live formula would do
+      if (ad) bs = Math.max(Math.ceil(cd / ad) * ad, cd);
+      if (XP.findCell(ofXml, "BS" + r)) {
         try {
-          ofXml = XP.refreshFormulaCache(ofXml, "BJ" + r, bj);
+          ofXml = XP.refreshFormulaCache(ofXml, "BS" + r, bs);
         } catch (e) {}
       }
-      if (ad && XP.findCell(ofXml, "BK" + r)) {
+      if (ad && XP.findCell(ofXml, "BT" + r)) {
         try {
-          ofXml = XP.refreshFormulaCache(ofXml, "BK" + r, bj / ad);
+          ofXml = XP.refreshFormulaCache(ofXml, "BT" + r, bs / ad);
         } catch (e) {}
       }
     }
   }
-  return ofXml;
+  return { ofXml, helperXml };
 }
 
 /**
- * masterZip: zipLike for the master workbook (mutated: 오더_선적 sheet only,
- *   columns AO/AP/AQ/AR/AT/AU/CD/CE -- their existing external-link formulas
- *   are intentionally replaced with plain values, per explicit confirmation).
+ * masterZip: zipLike for the master workbook (mutated: 오더_선적 sheet --
+ *   columns AX/AY/AZ/BA/BB/BD/BE/CY/CZ, their existing external-link
+ *   formulas intentionally replaced with plain values per explicit
+ *   confirmation, plus cached-value refreshes through BT -- and, when
+ *   present, the matching row of the hidden "주간커버리지_계산" helper
+ *   sheet). MR_순수 is read-only here.
  * sellinZip: zipLike for the user's raw Sellin export (Sheet0).
  */
 async function runSellinPipeline(masterZip, sellinZip) {
@@ -1325,6 +1380,24 @@ async function runSellinPipeline(masterZip, sellinZip) {
     const n = typeof c.value === "number" ? c.value : parseFloat(c.value);
     return Number.isFinite(n) ? n : null;
   };
+
+  // MR_순수 (read-only, for the weekly coverage engine) and the hidden
+  // "주간커버리지_계산" helper sheet (its cached values get refreshed
+  // alongside 오더_선적's) -- both may legitimately be absent on an older
+  // master file that predates the 2026-10 weekly redesign, in which case
+  // the weekly-coverage section of refreshDownstreamFormulaCache is simply
+  // skipped (everything else in this pipeline still runs normally).
+  let mrXml = null;
+  try {
+    mrXml = (await resolveSheetXml(masterZip, "MR_순수")).xml;
+  } catch (e) {}
+  let helperPath = null,
+    helperXml = null;
+  try {
+    const helperResolved = await resolveSheetXml(masterZip, WEEKLY_HELPER_SHEET);
+    helperPath = helperResolved.path;
+    helperXml = helperResolved.xml;
+  } catch (e) {}
 
   const { xml: sellinXml } = await resolveSheetXml(sellinZip, "Sheet0");
   const sellinShared = await resolveSharedStrings(sellinZip);
@@ -1368,12 +1441,15 @@ async function runSellinPipeline(masterZip, sellinZip) {
       else skippedCols.push(dstC);
     }
     if (edits.length) ofXml = XP.applyRowEdits(ofXml, r, edits);
-    ofXml = refreshDownstreamFormulaCache(ofXml, r, s, masterShared);
+    const refreshed = refreshDownstreamFormulaCache(ofXml, helperXml, mrXml, r, s, masterShared);
+    ofXml = refreshed.ofXml;
+    helperXml = refreshed.helperXml;
     filled++;
     report.push({ row: r, mcode, corp, status: skippedCols.length ? "partial" : status, skippedCols });
   }
 
   await masterZip.writeText(ofPath, ofXml);
+  if (helperPath && helperXml) await masterZip.writeText(helperPath, helperXml);
   return {
     stats: { filled, missing, corpUnmatched, sellinMcodeCount: byMcodeOnly.size },
     report,
