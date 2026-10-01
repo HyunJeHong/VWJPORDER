@@ -1748,17 +1748,46 @@ return { resolveSheetXml, resolveSharedStrings, runBillingPipeline, runStockStat
     }
   });
 
+  // Plain-browser fallback: works in any normal web page (GitHub Pages, a
+  // local file, any host) via a throwaway <a download> + blob: URL click --
+  // no special API needed. Used whenever the Claude-artifact-only
+  // `downloads` capability (window.claude.use("downloads")) isn't present,
+  // which is the normal case once this page is hosted outside claude.ai.
+  function browserDownloadBlob(blob, filename) {
+    const url = URL.createObjectURL(blob);
+    try {
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } finally {
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+  }
+
   async function downloadZip(zip, filename) {
-    const downloads = await getDownloads();
-    if (!downloads) {
-      showError("이 화면에서는 다운로드 기능을 사용할 수 없습니다.");
+    let blob;
+    try {
+      blob = await zip.generateAsync({ type: "blob", compression: "DEFLATE" });
+    } catch (e) {
+      showError("다운로드 파일 생성에 실패했습니다: " + (e && e.message ? e.message : String(e)));
       return;
     }
+    const downloads = await getDownloads();
+    if (downloads) {
+      try {
+        await downloads.save({ filename, data: blob });
+        return;
+      } catch (e) {
+        if (e && e.code === "declined") return;
+        // fall through to the plain-browser fallback below rather than failing outright
+      }
+    }
     try {
-      const blob = await zip.generateAsync({ type: "blob", compression: "DEFLATE" });
-      await downloads.save({ filename, data: blob });
+      browserDownloadBlob(blob, filename);
     } catch (e) {
-      if (e && e.code === "declined") return;
       showError("다운로드에 실패했습니다: " + (e && e.message ? e.message : String(e)));
     }
   }
