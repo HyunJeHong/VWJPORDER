@@ -33,6 +33,8 @@ h1{font-size:1.3rem;font-weight:700;margin:0 0 4px}
 
 .upload-row{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:8px;flex-wrap:wrap}
 .upload-row.disabled{opacity:0.5}
+.upload-row.dropzone{border-style:dashed;border-color:var(--border);transition:border-color 0.12s,background-color 0.12s}
+.upload-row.dropzone.drag-over{border-style:solid;border-color:var(--accent);background:color-mix(in srgb, var(--accent) 10%, var(--surface))}
 .upload-row>div:first-child{min-width:0;flex:1 1 160px}
 .upload-row .label{font-size:0.9rem;font-weight:600}
 .upload-row .hint{font-size:0.74rem;color:var(--fg-dim);font-weight:400;margin-top:2px}
@@ -60,6 +62,8 @@ h1{font-size:1.3rem;font-weight:700;margin:0 0 4px}
 .issue-list{margin-top:10px;border-top:1px solid var(--border);padding-top:10px}
 .issue-list .item{font-size:0.78rem;line-height:1.7;color:var(--fg-dim)}
 .issue-list .item b{color:var(--fg)}
+.issue-list .item.warn{color:var(--red)}
+.issue-list .item.warn b{color:var(--red)}
 
 .dl-row{display:flex;gap:8px;margin-top:16px}
 .dl-btn{flex:1;background:var(--accent);color:var(--accent-fg);border:none;border-radius:9px;padding:12px;text-align:center;font-size:0.84rem;font-weight:700;cursor:pointer;display:none}
@@ -74,7 +78,7 @@ h1{font-size:1.3rem;font-weight:700;margin:0 0 4px}
   <p class="sub">파일을 올리고 실행을 누르면 브라우저 안에서 바로 처리됩니다. 서버로 전송되지 않고, 마스터·주간재고 파일의 서식·글꼴·수식은 건드리지 않습니다 — 지정된 셀의 값만 채웁니다.</p>
 
   <div class="group-title">마스터</div>
-  <div class="upload-row">
+  <div class="upload-row dropzone">
     <div>
       <div class="label">마스터 파일</div>
       <div class="hint">VW JP_오더_선적_생산계획...xlsx</div>
@@ -91,17 +95,17 @@ h1{font-size:1.3rem;font-weight:700;margin:0 0 4px}
   </div>
 
   <div class="group-title">빌링Raw</div>
-  <div class="upload-row">
+  <div class="upload-row dropzone">
     <div><div class="label">네덜란드 빌링 Raw</div><div class="filename" id="fn-nl"></div></div>
     <input type="file" id="f-nl" accept=".xlsx">
   </div>
-  <div class="upload-row">
+  <div class="upload-row dropzone">
     <div><div class="label">스페인 빌링 Raw</div><div class="filename" id="fn-es"></div></div>
     <input type="file" id="f-es" accept=".xlsx">
   </div>
 
   <div class="group-title">Stock Status</div>
-  <div class="upload-row">
+  <div class="upload-row dropzone">
     <div>
       <div class="label">주간재고(Stock Status) 파일</div>
       <div class="filename" id="fn-stock"></div>
@@ -114,19 +118,19 @@ h1{font-size:1.3rem;font-weight:700;margin:0 0 4px}
   </div>
 
   <div class="group-title">Sellin</div>
-  <div class="upload-row">
+  <div class="upload-row dropzone">
     <div><div class="label">Sellin 원본 파일</div><div class="hint">가공하지 않은 원본 그대로 업로드</div><div class="filename" id="fn-sellin"></div></div>
     <input type="file" id="f-sellin" accept=".xlsx">
   </div>
 
   <div class="group-title">PSI SAP RAW</div>
-  <div class="upload-row">
+  <div class="upload-row dropzone">
     <div><div class="label">PSI SAP RAW (네덜란드)</div><div class="hint">가공하지 않은 원본 그대로 업로드</div><div class="filename" id="fn-psisap"></div></div>
     <input type="file" id="f-psisap" accept=".xlsx">
   </div>
 
   <div class="group-title">Forecast Hankook</div>
-  <div class="upload-row">
+  <div class="upload-row dropzone">
     <div><div class="label">Forecast Hankook (윈터타이어)</div><div class="hint">가공하지 않은 원본 그대로 업로드</div><div class="filename" id="fn-fh"></div></div>
     <input type="file" id="f-fh" accept=".xlsx">
   </div>
@@ -828,9 +832,20 @@ async function checkMrCoverage(masterZip, weeksAhead) {
 //   rest are blank and inherit it. Only Channel=='OE' rows count; 'RE'
 //   must be excluded or SUMIFS-equivalent totals are wildly inflated.
 // - M-Code lives in the column headed "HRCY-CD-7", as text.
-// - Sheet0 is not currently corp/법인-specific -- an M-Code's sums already
-//   represent that material regardless of which 오더_선적 row(s) share it,
-//   so no separate 법인 join is needed on the Sheet0 side.
+// - Sheet0 IS corp/법인-specific after all -- the column headed "HRCY-NM-3"
+//   carries the 법인 name on every leaf row (densely, not fill-down), and
+//   the SAME M-Code can appear under multiple different 법인 blocks with
+//   DIFFERENT per-법인 quantities (confirmed against real export data: e.g.
+//   M-Code 1032648 has its own Netherland row and its own separate China
+//   row, each with its own EPC). A 법인's true value for an M-Code is ONLY
+//   that 법인's own row(s) -- summing across every row that shares the
+//   M-Code regardless of 법인 silently pulls in other 법인's quantities too
+//   (this was exactly the earlier bug: Netherland's EPC for 1032648 showing
+//   3076 instead of its true 3072, because China's 4 units on a separate
+//   row were being added in). So sums are keyed by "법인|mcode", with a
+//   mcode-only aggregate kept alongside purely as a last-resort fallback
+//   for the rare case a 오더_선적 row's 법인 text has no matching 법인 block
+//   in Sheet0 at all (flagged in the report, never silent).
 // - Sheet0 can be 100MB+ (18,900+ rows x 136 columns), so this uses a
 //   dedicated single-pass column-filtered scan rather than the per-row
 //   getRowSpan/readCell helpers used elsewhere (those are fine for the
@@ -838,24 +853,42 @@ async function checkMrCoverage(masterZip, weeksAhead) {
 const SELLIN_HEADER_TEXT = {
   channel: "Channel",
   mcode: "HRCY-CD-7",
+  corp: "HRCY-NM-3",
   ATP: "onhandAtpQty",
   AtDock: "intransitAtDockQty",
   OnWater: "intransitOwQty",
   EPC: "epcTotalQty",
+  CY: "epcCyQty",
+  Factory: "epcFactoryQty",
   W: "prodPlanCurWkQty",
   W1: "prodPlanNxtW01Qty",
   Confirm: "nonCyEpcConfirmQty",
   InProd: "nonCyEpcProdQty",
 };
+// 오더_선적's own column layout (destination side) is NOT resolved by header
+// text like Sheet0 is -- these letters are hardcoded, same as the rest of
+// this file's 마스터/오더_선적 writers. Verified directly against a real
+// export: EPC total ("epcTotalQty") always equals epcCyQty + epcFactoryQty
+// EXACTLY (checked across 5 real 법인/M-Code combinations, including one
+// with a non-zero CY portion) -- so splitting EPC into its own "CY" and
+// "Factory" columns (AR/AS) never changes the row's TTL, it only shows the
+// same total broken into its two real components instead of one.
+// AR/AS used to be a single "EPC" column with TTL right after it at the old
+// AS; the user inserted one new column there by hand (splitting EPC into
+// CY + Factory) which pushed everything from the old AS onward by +1 --
+// TTL's own formula (SUM(AO:AS)) auto-adjusted for this on its own, but
+// CD/CE (Confirm/InProd, used by unrelated 생산일수 formulas further right)
+// shifted to CE/CF and have to be hardcoded at their new letters here too.
 const SELLIN_MAP = [
   ["AO", "ATP"],
   ["AP", "AtDock"],
   ["AQ", "OnWater"],
-  ["AR", "EPC"],
-  ["AT", "W"],
-  ["AU", "W1"],
-  ["CD", "Confirm"],
-  ["CE", "InProd"],
+  ["AR", "CY"],
+  ["AS", "Factory"],
+  ["AU", "W"],
+  ["AV", "W1"],
+  ["CE", "Confirm"],
+  ["CF", "InProd"],
 ];
 
 // Scans Sheet0's row 1 and resolves each SELLIN_HEADER_TEXT key to whatever
@@ -906,8 +939,8 @@ function resolveSellinHeaderCols(sheetXml, sharedStrings) {
 }
 
 function scanSellinSums(sheetXml, sharedStrings, resolvedCol) {
-  const dataKeys = ["ATP", "AtDock", "OnWater", "EPC", "W", "W1", "Confirm", "InProd"];
-  const colToKey = { [resolvedCol.channel]: "channel", [resolvedCol.mcode]: "mcode" };
+  const dataKeys = ["ATP", "AtDock", "OnWater", "EPC", "CY", "Factory", "W", "W1", "Confirm", "InProd"];
+  const colToKey = { [resolvedCol.channel]: "channel", [resolvedCol.mcode]: "mcode", [resolvedCol.corp]: "corp" };
   for (const key of dataKeys) colToKey[resolvedCol[key]] = key;
   const colsAlt = Object.keys(colToKey)
     .slice()
@@ -949,26 +982,52 @@ function scanSellinSums(sheetXml, sharedStrings, resolvedCol) {
 
   const rowNumsSorted = [...rows.keys()].sort((a, b) => a - b);
   let lastChannel = null;
-  const sums = new Map(); // mcode -> { ATP, AtDock, OnWater, EPC, W, W1, Confirm, InProd }
+  // 법인("corp") IS present on Sheet0 -- see the comment above
+  // SELLIN_HEADER_TEXT. Every real export checked so far fills it in on
+  // every single leaf row (not fill-down like Channel), but it's tracked
+  // with the same last-known-value carry-forward as Channel anyway, purely
+  // as a defensive fallback in case some export variant ever leaves it
+  // blank on continuation rows -- harmless when the column is dense (which
+  // is every case seen so far), since a non-blank cell always overwrites it.
+  // A 법인's own rows for an M-Code can carry very different quantities
+  // from another 법인's rows for that SAME M-Code, so the primary map is
+  // keyed by "법인|mcode". byMcodeOnly is kept purely as a last-resort
+  // fallback for a 오더_선적 row whose 법인 text has no matching block in
+  // Sheet0 at all (runSellinPipeline reports that case instead of silently
+  // using it).
+  let lastCorp = "";
+  const byCorpAndMcode = new Map(); // "corp|mcode" -> { ATP, AtDock, OnWater, EPC, W, W1, Confirm, InProd }
+  const byMcodeOnly = new Map(); // mcode -> same shape, summed across every 법인 (fallback only)
+  const blank = () => ({ ATP: 0, AtDock: 0, OnWater: 0, EPC: 0, CY: 0, Factory: 0, W: 0, W1: 0, Confirm: 0, InProd: 0 });
   for (const rn of rowNumsSorted) {
     const cells = rows.get(rn);
     const chCell = cells.channel;
     if (chCell && chCell.kind === "string" && chCell.value !== "") lastChannel = chCell.value;
+    const corpCell = cells.corp;
+    if (corpCell && corpCell.kind === "string" && corpCell.value.trim() !== "") lastCorp = corpCell.value.trim();
     if (lastChannel !== "OE") continue;
     const mCell = cells.mcode;
     if (!mCell) continue;
     const mn = parseFloat(mCell.value);
     if (!Number.isFinite(mn)) continue;
     const mcode = Math.round(mn);
+    const corp = lastCorp;
     const numOf = (key) => {
       const cell = cells[key];
       return cell && cell.kind === "number" && Number.isFinite(cell.value) ? cell.value : 0;
     };
-    if (!sums.has(mcode)) sums.set(mcode, { ATP: 0, AtDock: 0, OnWater: 0, EPC: 0, W: 0, W1: 0, Confirm: 0, InProd: 0 });
-    const s = sums.get(mcode);
-    for (const key of dataKeys) s[key] += numOf(key);
+    if (!byMcodeOnly.has(mcode)) byMcodeOnly.set(mcode, blank());
+    const g = byMcodeOnly.get(mcode);
+    for (const key of dataKeys) g[key] += numOf(key);
+
+    if (corp) {
+      const ckey = corp + "|" + mcode;
+      if (!byCorpAndMcode.has(ckey)) byCorpAndMcode.set(ckey, blank());
+      const s = byCorpAndMcode.get(ckey);
+      for (const key of dataKeys) s[key] += numOf(key);
+    }
   }
-  return sums;
+  return { byCorpAndMcode, byMcodeOnly };
 }
 
 /**
@@ -995,18 +1054,30 @@ async function runSellinPipeline(masterZip, sellinZip) {
   const { xml: sellinXml } = await resolveSheetXml(sellinZip, "Sheet0");
   const sellinShared = await resolveSharedStrings(sellinZip);
   const resolvedCol = resolveSellinHeaderCols(sellinXml, sellinShared);
-  const sums = scanSellinSums(sellinXml, sellinShared, resolvedCol);
+  const { byCorpAndMcode, byMcodeOnly } = scanSellinSums(sellinXml, sellinShared, resolvedCol);
 
   let filled = 0,
-    missing = 0;
+    missing = 0,
+    corpUnmatched = 0;
   const report = [];
   for (let r = OF_DATA_ROW_START; r <= OF_DATA_ROW_END; r++) {
     const corp = mCellText(ofXml, "B" + r);
     const mcodeRaw = mCellNum(ofXml, "N" + r);
     if (!corp || !mcodeRaw) continue;
     const mcode = Math.round(mcodeRaw);
-    const s = sums.get(mcode);
-    if (!s) {
+    // 법인별 값이 반드시 우선: 같은 M-Code를 다른 법인도 쓰는 경우, 그 법인
+    // 자신의 수치만 써야 한다 (전체를 합치면 타 법인 수량이 섞여 들어간다).
+    // Sheet0에 이 법인+M-Code 조합이 전혀 없을 때만(법인명 표기 차이 등) 과거
+    // 방식(M-Code 전체 합산)으로 fallback하되, 상태를 명확히 구분해 리포트한다.
+    let s = byCorpAndMcode.get(corp.trim() + "|" + mcode);
+    let status;
+    if (s) {
+      status = "filled";
+    } else if (byMcodeOnly.has(mcode)) {
+      s = byMcodeOnly.get(mcode);
+      status = "corp_unmatched"; // 주의: 이 행은 타 법인 수량이 섞인 전체 합산치임
+      corpUnmatched++;
+    } else {
       missing++;
       report.push({ row: r, mcode, corp, status: "missing" });
       continue;
@@ -1023,11 +1094,14 @@ async function runSellinPipeline(masterZip, sellinZip) {
     }
     if (edits.length) ofXml = XP.applyRowEdits(ofXml, r, edits);
     filled++;
-    report.push({ row: r, mcode, corp, status: skippedCols.length ? "partial" : "filled", skippedCols });
+    report.push({ row: r, mcode, corp, status: skippedCols.length ? "partial" : status, skippedCols });
   }
 
   await masterZip.writeText(ofPath, ofXml);
-  return { stats: { filled, missing, sellinMcodeCount: sums.size }, report };
+  return {
+    stats: { filled, missing, corpUnmatched, sellinMcodeCount: byMcodeOnly.size },
+    report,
+  };
 }
 
 // ---- ISO 8601 week helper (shared by PSI SAP RAW / Forecast Hankook "기준 CW" anchors) ----
@@ -1449,6 +1523,42 @@ return { resolveSheetXml, resolveSharedStrings, runBillingPipeline, runStockStat
   wireFilename(fPsiSap, "fn-psisap");
   wireFilename(fFh, "fn-fh");
 
+  // Drag-and-drop: the WHOLE ".upload-row.dropzone" card is the drop target
+  // (not just the skinny native <input type=file>), with a visible dashed
+  // border that highlights solid on dragover so it's obvious where to drop.
+  // Dropping assigns the file to the row's own <input type=file> via
+  // DataTransfer and fires a real "change" event, so wireFilename above (and
+  // anything else listening for change) picks it up exactly as if the user
+  // had clicked and chosen the file themselves.
+  function wireDropZone(input) {
+    const row = input.closest(".upload-row");
+    if (!row) return;
+    let dragDepth = 0; // dragenter/dragleave fire on every child too; a counter avoids flicker
+    row.addEventListener("dragenter", (e) => {
+      e.preventDefault();
+      dragDepth++;
+      row.classList.add("drag-over");
+    });
+    row.addEventListener("dragover", (e) => {
+      e.preventDefault(); // required or the browser's default (open the file) wins instead of a drop
+      if (e.dataTransfer) e.dataTransfer.dropEffect = "copy";
+    });
+    row.addEventListener("dragleave", () => {
+      dragDepth = Math.max(0, dragDepth - 1);
+      if (dragDepth === 0) row.classList.remove("drag-over");
+    });
+    row.addEventListener("drop", (e) => {
+      e.preventDefault();
+      dragDepth = 0;
+      row.classList.remove("drag-over");
+      const files = e.dataTransfer && e.dataTransfer.files;
+      if (!files || !files.length) return;
+      input.files = files; // DataTransfer-assigned FileList works on a real <input type=file>
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+  }
+  [fMaster, fNl, fEs, fStock, fSellin, fPsiSap, fFh].forEach(wireDropZone);
+
   // today's date, local time, as the default CW-anchor picker value
   try {
     const now = new Date();
@@ -1558,14 +1668,27 @@ return { resolveSheetXml, resolveSharedStrings, runBillingPipeline, runStockStat
           fmt(s.sellinMcodeCount) +
           "개 중 매칭 안 됨 " +
           fmt(s.missing) +
-          "건</div>"
+          "건" +
+          (s.corpUnmatched ? " · 법인 미매칭(합산치 사용) " + fmt(s.corpUnmatched) + "건" : "") +
+          "</div>"
       );
       const partialRows = sellinResult.report.filter((r) => r.status === "partial");
       const missingRows = sellinResult.report.filter((r) => r.status === "missing");
-      if (missingRows.length || partialRows.length) {
+      const corpUnmatchedRows = sellinResult.report.filter((r) => r.status === "corp_unmatched");
+      if (missingRows.length || partialRows.length || corpUnmatchedRows.length) {
         let list = '<div class="issue-list">';
         for (const r of missingRows) {
           list += '<div class="item"><b>' + r.mcode + "</b> (" + r.corp + ") — 행 " + r.row + ": Sellin 원본에 매칭되는 M-Code 없음</div>";
+        }
+        for (const r of corpUnmatchedRows) {
+          list +=
+            '<div class="item warn"><b>' +
+            r.mcode +
+            "</b> (" +
+            r.corp +
+            ") — 행 " +
+            r.row +
+            ": Sellin 원본에서 이 법인 이름을 찾지 못해 전 법인 합산치를 대신 채움 — 다른 법인 수량이 섞여 있을 수 있으니 직접 확인 필요</div>";
         }
         for (const r of partialRows) {
           list +=
