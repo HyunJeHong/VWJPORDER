@@ -71,11 +71,28 @@ h1{font-size:1.3rem;font-weight:700;margin:0 0 4px}
 
 .err{background:var(--red);color:#fff;border-radius:8px;padding:10px 12px;font-size:0.8rem;margin-top:10px;display:none}
 .err.show{display:block}
+
+.autodetect-overlay{position:fixed;inset:0;z-index:1000;background:color-mix(in srgb, var(--accent) 14%, transparent);backdrop-filter:blur(1px);display:none;align-items:center;justify-content:center;pointer-events:none;border:3px dashed var(--accent)}
+.autodetect-overlay.show{display:flex}
+.autodetect-overlay-text{background:var(--surface);color:var(--fg);border:1px solid var(--border);border-radius:12px;padding:16px 22px;font-size:0.95rem;font-weight:700;box-shadow:0 6px 24px rgba(0,0,0,0.18);text-align:center;max-width:320px}
+.upload-row.auto-assigned{border-color:var(--accent);background:color-mix(in srgb, var(--accent) 10%, var(--surface));transition:border-color 0.2s,background-color 0.2s}
+
+.autodetect-result{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin:0 0 16px;display:none}
+.autodetect-result.show{display:block}
+.autodetect-result .item{font-size:0.78rem;line-height:1.7;color:var(--fg-dim)}
+.autodetect-result .item b{color:var(--fg)}
+.autodetect-result .item.warn{color:var(--red)}
+.autodetect-result .item.warn b{color:var(--red)}
 </style>
+
+<div class="autodetect-overlay" id="autodetect-overlay">
+  <div class="autodetect-overlay-text">여기에 놓으면 파일 종류를 자동으로 인식해서 알맞은 칸에 배정합니다</div>
+</div>
 
 <div class="wrap">
   <h1>VW JP 대시보드</h1>
-  <p class="sub">파일을 올리고 실행을 누르면 브라우저 안에서 바로 처리됩니다. 서버로 전송되지 않고, 마스터·주간재고 파일의 서식·글꼴·수식은 건드리지 않습니다 — 지정된 셀의 값만 채웁니다.</p>
+  <p class="sub">파일을 올리고 실행을 누르면 브라우저 안에서 바로 처리됩니다. 서버로 전송되지 않고, 마스터·주간재고 파일의 서식·글꼴·수식은 건드리지 않습니다 — 지정된 셀의 값만 채웁니다. 여러 파일을 한꺼번에 페이지 아무 곳에나 드래그하면 종류를 자동으로 인식해서 알맞은 칸에 넣어줍니다 (확실하지 않으면 직접 해당 칸에 넣어주세요).</p>
+  <div class="autodetect-result" id="autodetect-result"></div>
 
   <div class="group-title">마스터</div>
   <div class="upload-row dropzone">
@@ -286,6 +303,40 @@ function writeNumber(xml, ref, num) {
   return xml.slice(0, cell.index) + replacement + xml.slice(cell.index + cell.match.length);
 }
 
+/**
+ * Refresh ONLY the cached <v> of a cell that holds a live formula (<f>...</f>
+ * or a shared-formula slave with an empty <f .../> self-close), leaving the
+ * formula itself completely untouched. Use this after writing new inputs
+ * that a formula cell depends on, so the delivered file shows the correct
+ * number immediately -- not a stale cached value waiting on the viewer to
+ * recalculate (which this engine cannot control or guarantee: some Excel
+ * calc-mode/viewer combinations do not honor fullCalcOnLoad reliably).
+ * Throws if the cell doesn't exist or doesn't actually hold a formula
+ * (refuses to turn a plain value cell into a fake "formula" via this path --
+ * that's writeNumber's job).
+ */
+function refreshFormulaCache(xml, ref, num) {
+  const cell = findCell(xml, ref);
+  if (!cell) throw new Error("셀을 찾을 수 없습니다: " + ref);
+  const inner = cell.match.endsWith("/>") ? "" : extractInner(cell.match);
+  const fMatch = inner.match(/<f[^>]*\/>|<f[^>]*>[\s\S]*?<\/f>/);
+  if (!fMatch) throw new Error("수식 셀이 아닙니다 (refreshFormulaCache는 기존 수식의 캐시값만 갱신합니다): " + ref);
+  // valid number -> plain numeric cell (t= attr dropped); NaN/Infinity (the
+  // formula would itself error, e.g. #DIV/0!) -> mark as an error cell so
+  // Excel doesn't display a bogus number masquerading as a real result.
+  const attrs = stripTypeAttr(cell.attrs);
+  let newInner;
+  if (typeof num === "number" && Number.isFinite(num)) {
+    newInner = fMatch[0] + "<v>" + formatNumber(num) + "</v>";
+    var newAttrs = attrs;
+  } else {
+    newInner = fMatch[0] + "<v>#VALUE!</v>";
+    var newAttrs = attrs + ' t="e"';
+  }
+  const replacement = "<c r=\"" + ref + "\"" + newAttrs + ">" + newInner + "</c>";
+  return xml.slice(0, cell.index) + replacement + xml.slice(cell.index + cell.match.length);
+}
+
 function writeInlineString(xml, ref, text) {
   const cell = findCell(xml, ref);
   if (!cell) throw new Error("셀을 찾을 수 없습니다: " + ref);
@@ -359,7 +410,7 @@ function readRowCells(xml, rowNum, refs, sharedStrings) {
 }
 
 
-return { getRowSpan, applyRowEdits, readRowCells, findCell, readCell, writeNumber, writeInlineString, excelSerialToUTCDate, utcDateToExcelSerial, ymd, decodeXmlEntities, escapeXmlText };
+return { getRowSpan, applyRowEdits, readRowCells, findCell, readCell, writeNumber, writeInlineString, refreshFormulaCache, excelSerialToUTCDate, utcDateToExcelSerial, ymd, decodeXmlEntities, escapeXmlText };
 })();
 
 // ==== colutil.js (namespaced as CU) ====
@@ -1030,6 +1081,71 @@ function scanSellinSums(sheetXml, sharedStrings, resolvedCol) {
   return { byCorpAndMcode, byMcodeOnly };
 }
 
+// After writing this row's ATP/AtDock/OnWater/CY/Factory, several OTHER
+// 오더_선적 cells hold live formulas whose inputs just changed:
+//   AT (TTL)  = ATP+AtDock+OnWater+CY+Factory
+//   BI        = (CY+Factory) - BD
+//   BJ        = AT - BE
+//   AX        = BJ
+//   AY        = IFERROR(CEILING(AX,AD), AX) then MAX(that, AX)
+//   AZ        = AY / AD
+// (BD/BE/AD are read-only here -- this engine never writes them, they come
+// from the master's own pre-existing formulas/values and are trusted as-is.)
+// Relying on Excel to recalculate these on open is NOT reliable enough in
+// practice (fullCalcOnLoad is set on the workbook, but some Excel
+// calc-mode/viewer combinations still show the old cached number until a
+// manual recalc) -- so every cell in this chain gets its CACHED value
+// refreshed here, immediately, in addition to whatever Excel does later.
+// The underlying <f> formula text itself is never touched, only its cached
+// <v> -- if the user's own Excel ever changes any of these formulas, the
+// next run picks up the new text as-is (XP.findCell/readCell always re-read
+// whatever is currently in the XML).
+function refreshDownstreamFormulaCache(ofXml, r, s, masterShared) {
+  const ttl = s.ATP + s.AtDock + s.OnWater + s.CY + s.Factory;
+  if (XP.findCell(ofXml, "AT" + r)) {
+    try {
+      ofXml = XP.refreshFormulaCache(ofXml, "AT" + r, ttl);
+    } catch (e) {}
+  }
+
+  const bdCell = XP.readCell(ofXml, "BD" + r, masterShared);
+  const bd = bdCell.kind === "number" && Number.isFinite(bdCell.value) ? bdCell.value : null;
+  if (bd != null && XP.findCell(ofXml, "BI" + r)) {
+    try {
+      ofXml = XP.refreshFormulaCache(ofXml, "BI" + r, s.CY + s.Factory - bd);
+    } catch (e) {}
+  }
+
+  const beCell = XP.readCell(ofXml, "BE" + r, masterShared);
+  const be = beCell.kind === "number" && Number.isFinite(beCell.value) ? beCell.value : null;
+  if (be != null && XP.findCell(ofXml, "BJ" + r)) {
+    const bj = ttl - be;
+    try {
+      ofXml = XP.refreshFormulaCache(ofXml, "BJ" + r, bj);
+    } catch (e) {}
+    if (XP.findCell(ofXml, "AX" + r)) {
+      try {
+        ofXml = XP.refreshFormulaCache(ofXml, "AX" + r, bj);
+      } catch (e) {}
+      const adCell = XP.readCell(ofXml, "AD" + r, masterShared);
+      const ad = adCell.kind === "number" && Number.isFinite(adCell.value) ? adCell.value : null;
+      let ay = bj; // IFERROR(...) fallback when AD is missing/zero, same as the live formula would do
+      if (ad) ay = Math.max(Math.ceil(bj / ad) * ad, bj);
+      if (XP.findCell(ofXml, "AY" + r)) {
+        try {
+          ofXml = XP.refreshFormulaCache(ofXml, "AY" + r, ay);
+        } catch (e) {}
+      }
+      if (ad && XP.findCell(ofXml, "AZ" + r)) {
+        try {
+          ofXml = XP.refreshFormulaCache(ofXml, "AZ" + r, ay / ad);
+        } catch (e) {}
+      }
+    }
+  }
+  return ofXml;
+}
+
 /**
  * masterZip: zipLike for the master workbook (mutated: 오더_선적 sheet only,
  *   columns AO/AP/AQ/AR/AT/AU/CD/CE -- their existing external-link formulas
@@ -1093,6 +1209,7 @@ async function runSellinPipeline(masterZip, sellinZip) {
       else skippedCols.push(dstC);
     }
     if (edits.length) ofXml = XP.applyRowEdits(ofXml, r, edits);
+    ofXml = refreshDownstreamFormulaCache(ofXml, r, s, masterShared);
     filled++;
     report.push({ row: r, mcode, corp, status: skippedCols.length ? "partial" : status, skippedCols });
   }
@@ -1536,19 +1653,23 @@ return { resolveSheetXml, resolveSharedStrings, runBillingPipeline, runStockStat
     let dragDepth = 0; // dragenter/dragleave fire on every child too; a counter avoids flicker
     row.addEventListener("dragenter", (e) => {
       e.preventDefault();
+      e.stopPropagation(); // a drop aimed at THIS row is an explicit, precise choice -- don't also run the page-wide auto-detect overlay/handler for it
       dragDepth++;
       row.classList.add("drag-over");
     });
     row.addEventListener("dragover", (e) => {
       e.preventDefault(); // required or the browser's default (open the file) wins instead of a drop
+      e.stopPropagation();
       if (e.dataTransfer) e.dataTransfer.dropEffect = "copy";
     });
-    row.addEventListener("dragleave", () => {
+    row.addEventListener("dragleave", (e) => {
+      e.stopPropagation();
       dragDepth = Math.max(0, dragDepth - 1);
       if (dragDepth === 0) row.classList.remove("drag-over");
     });
     row.addEventListener("drop", (e) => {
       e.preventDefault();
+      e.stopPropagation();
       dragDepth = 0;
       row.classList.remove("drag-over");
       const files = e.dataTransfer && e.dataTransfer.files;
@@ -1558,6 +1679,202 @@ return { resolveSheetXml, resolveSharedStrings, runBillingPipeline, runStockStat
     });
   }
   [fMaster, fNl, fEs, fStock, fSellin, fPsiSap, fFh].forEach(wireDropZone);
+
+  // ---- Auto-detect drop zone: drop any number of files ANYWHERE on the
+  // page (outside a specific upload row, which keeps its own precise
+  // drop-to-that-slot behavior above) and each file is opened, fingerprinted
+  // by its actual internal sheet names/headers, and routed to the matching
+  // slot automatically. Never guesses blindly where getting it wrong would
+  // silently corrupt data (billing NL vs ES in particular) -- low-confidence
+  // cases are left unassigned and reported so the user places them by hand.
+  const autoOverlay = el("autodetect-overlay");
+  const autoResultBox = el("autodetect-result");
+
+  function setAssignedFile(input, labelId, file) {
+    const dt = new DataTransfer();
+    dt.items.add(file);
+    input.files = dt.files;
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+    const row = input.closest(".upload-row");
+    if (row) {
+      row.classList.add("auto-assigned");
+      setTimeout(() => row.classList.remove("auto-assigned"), 1600);
+    }
+  }
+
+  const SLOT_INFO = {
+    master: { input: fMaster, labelId: "fn-master", label: "마스터 파일" },
+    stock: { input: fStock, labelId: "fn-stock", label: "주간재고(Stock Status) 파일" },
+    sellin: { input: fSellin, labelId: "fn-sellin", label: "Sellin 원본 파일" },
+    psisap: { input: fPsiSap, labelId: "fn-psisap", label: "PSI SAP RAW" },
+    fh: { input: fFh, labelId: "fn-fh", label: "Forecast Hankook" },
+    nl: { input: fNl, labelId: "fn-nl", label: "네덜란드 빌링 Raw" },
+    es: { input: fEs, labelId: "fn-es", label: "스페인 빌링 Raw" },
+  };
+
+  async function readSheetHeaderRow(z, wbXml, relsXml, sheetName, rowNum, maxCol) {
+    const path = WU.resolveSheetPath(wbXml, relsXml, sheetName);
+    const xml = await z.readText(path);
+    if (xml == null) return null;
+    const ssPath = WU.resolveSharedStringsPath(relsXml);
+    const ssXml = ssPath ? await z.readText(ssPath) : null;
+    const shared = WU.parseSharedStrings(ssXml || "");
+    const out = {};
+    for (let c = 1; c <= maxCol; c++) {
+      const colL = CU.colLetter(c);
+      const cell = XP.readCell(xml, colL + rowNum, shared);
+      if (cell.kind === "string" || cell.kind === "number") out[colL] = cell.value;
+    }
+    return { xml, shared, cells: out };
+  }
+
+  // Majority-vote a billing raw file's country from its own "Local Product
+  // Line" column (consistently country-prefixed, e.g. "NL1", "ES4" -- unlike
+  // the per-line "Country" column, which is the SHIP-TO country and varies
+  // row by row even within one entity's own export). Returns null rather
+  // than a guess when the vote isn't lopsided -- misrouting NL vs ES would
+  // silently mix entities again, exactly the bug class this session has
+  // been fixing all along.
+  async function guessBillingCountry(z, wbXml, relsXml, sheetName) {
+    const header = await readSheetHeaderRow(z, wbXml, relsXml, sheetName, 1, 40);
+    if (!header) return null;
+    let lplCol = null;
+    for (const [col, val] of Object.entries(header.cells)) {
+      if (val === "Local Product Line") {
+        lplCol = col;
+        break;
+      }
+    }
+    if (!lplCol) return null;
+    const rowNums = [...header.xml.matchAll(/<row r="(\d+)"/g)].map((m) => parseInt(m[1], 10));
+    const lastRow = rowNums.length ? Math.max(...rowNums) : 1;
+    const sampleEnd = Math.min(lastRow, 200);
+    const counts = {};
+    let total = 0;
+    for (let r = 2; r <= sampleEnd; r++) {
+      const cell = XP.readCell(header.xml, lplCol + r, header.shared);
+      if (cell.kind !== "string" || !cell.value) continue;
+      const prefix = cell.value.slice(0, 2).toUpperCase();
+      counts[prefix] = (counts[prefix] || 0) + 1;
+      total++;
+    }
+    if (!total) return null;
+    const entries = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+    const [topPrefix, topCount] = entries[0];
+    if (topCount / total < 0.9) return null; // ambiguous -- don't guess
+    if (topPrefix === "NL") return "nl";
+    if (topPrefix === "ES") return "es";
+    return null; // some other country's billing raw -- no slot for it, don't force it in
+  }
+
+  async function classifyFile(file) {
+    let zip;
+    try {
+      zip = await loadZip(file);
+    } catch (e) {
+      return { slot: null, reason: "엑셀(.xlsx) 파일이 아니거나 열 수 없음" };
+    }
+    const z = jsZipWrapper(zip);
+    const wbXml = await z.readText("xl/workbook.xml");
+    const relsXml = await z.readText("xl/_rels/workbook.xml.rels");
+    if (!wbXml || !relsXml) return { slot: null, reason: "xlsx 내부 구조를 알아볼 수 없음" };
+
+    const sheetNames = (wbXml.match(/<sheet\b[^>]*\/?>/g) || []).map((tag) => WU.getAttr(tag, "name")).filter(Boolean);
+    const has = (name) => sheetNames.includes(name);
+
+    if (has("오더_선적")) return { slot: "master" };
+    if (has("Stock Status_Europe")) return { slot: "stock" };
+
+    if (has("Sheet0")) {
+      const h = await readSheetHeaderRow(z, wbXml, relsXml, "Sheet0", 1, 12);
+      const texts = h ? Object.values(h.cells).map(String) : [];
+      if (texts.includes("Channel") && texts.includes("HRCY-LV")) return { slot: "sellin" };
+    }
+
+    if (has("Sheet1")) {
+      const h = await readSheetHeaderRow(z, wbXml, relsXml, "Sheet1", 1, 40);
+      const texts = h ? Object.values(h.cells).map(String) : [];
+      const isBilling = texts.includes("Billing Doc.") && texts.includes("Period/Year");
+      const isPsi = texts.includes("Company Code") && texts.includes("M-code");
+      if (isBilling) {
+        const country = await guessBillingCountry(z, wbXml, relsXml, "Sheet1");
+        if (country) return { slot: country };
+        return { slot: null, reason: "빌링Raw 파일로 보이지만 네덜란드/스페인 중 어느 쪽인지 확실치 않음 -- 직접 해당 칸에 올려주세요" };
+      }
+      if (isPsi) return { slot: "psisap" };
+    }
+
+    // Forecast Hankook: no distinctive sheet name (raw pivot export keeps
+    // whatever Excel gave it, e.g. "Tabelle1") -- fingerprint is a week-label
+    // ("YYYY WW") header instead, scanned on whichever sheet comes first.
+    if (sheetNames.length) {
+      const h = await readSheetHeaderRow(z, wbXml, relsXml, sheetNames[0], 1, 12);
+      const texts = h ? Object.values(h.cells).map(String) : [];
+      const weekLabelRe = /^\d{4}\s+\d{1,2}$/;
+      if (texts.filter((t) => weekLabelRe.test(t)).length >= 2) return { slot: "fh" };
+    }
+
+    return { slot: null, reason: "파일 종류를 알아보지 못함" };
+  }
+
+  function renderAutoDetectSummary(items) {
+    if (!autoResultBox) return;
+    const lines = items.map((it) => {
+      if (it.slot) {
+        return '<div class="item"><b>' + it.file.name + "</b> → " + SLOT_INFO[it.slot].label + " 칸에 자동 배정됨</div>";
+      }
+      return '<div class="item warn"><b>' + it.file.name + "</b> → 인식 실패 (" + (it.reason || "알 수 없음") + ")</div>";
+    });
+    autoResultBox.innerHTML = lines.join("");
+    autoResultBox.classList.add("show");
+  }
+
+  if (autoOverlay) {
+    let winDragDepth = 0;
+    window.addEventListener("dragenter", (e) => {
+      if (!e.dataTransfer || !e.dataTransfer.types || e.dataTransfer.types.indexOf("Files") === -1) return;
+      e.preventDefault();
+      winDragDepth++;
+      autoOverlay.classList.add("show");
+    });
+    window.addEventListener("dragover", (e) => {
+      if (!e.dataTransfer || !e.dataTransfer.types || e.dataTransfer.types.indexOf("Files") === -1) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "copy";
+    });
+    window.addEventListener("dragleave", () => {
+      winDragDepth = Math.max(0, winDragDepth - 1);
+      if (winDragDepth === 0) autoOverlay.classList.remove("show");
+    });
+    window.addEventListener("drop", async (e) => {
+      e.preventDefault();
+      winDragDepth = 0;
+      autoOverlay.classList.remove("show");
+      const files = e.dataTransfer && e.dataTransfer.files;
+      if (!files || !files.length) return;
+      const items = [];
+      for (const file of Array.from(files)) {
+        const result = await classifyFile(file);
+        items.push({ file, slot: result.slot, reason: result.reason });
+      }
+      // if several files land on the same slot (e.g. two Sheet0 files),
+      // keep only the first classified for that slot and flag the rest --
+      // silently overwriting one with the other is exactly the kind of
+      // silent-wrong-data bug this session exists to stop.
+      const used = new Set();
+      for (const it of items) {
+        if (!it.slot) continue;
+        if (used.has(it.slot)) {
+          it.slot = null;
+          it.reason = "같은 종류의 파일이 이미 배정됨 -- 직접 올려주세요";
+          continue;
+        }
+        used.add(it.slot);
+        setAssignedFile(SLOT_INFO[it.slot].input, SLOT_INFO[it.slot].labelId, it.file);
+      }
+      renderAutoDetectSummary(items);
+    });
+  }
 
   // today's date, local time, as the default CW-anchor picker value
   try {
