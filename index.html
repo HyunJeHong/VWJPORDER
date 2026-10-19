@@ -2788,6 +2788,34 @@ function cwAnchorText(dateInput) {
   return isoYear + "-CW" + String(week).padStart(2, "0");
 }
 
+function cellHasData(cell) {
+  if (!cell || cell.kind === "missing" || cell.kind === "empty") return false;
+  if (cell.kind === "string") return String(cell.value).trim() !== "";
+  return true;
+}
+
+function loadRawRows(sheetXml, sharedStrings, maxCol) {
+  const rowNums = [...sheetXml.matchAll(/<row r="(\d+)"/g)].map((m) => parseInt(m[1], 10));
+  const last = rowNums.length ? Math.max(...rowNums) : 1;
+  const rows = [];
+  for (let r = 2; r <= last; r++) {
+    const refs = [];
+    for (let c = 1; c <= maxCol; c++) refs.push(CU.colLetter(c) + r);
+    const cells = XP.readRowCells(sheetXml, r, refs, sharedStrings);
+    const anyFirst9 = refs.slice(0, 9).some((ref) => cellHasData(cells[ref]));
+    if (!anyFirst9) continue;
+    rows.push(refs.map((ref) => cells[ref]));
+  }
+  return rows;
+}
+
+function buildEdit(ref, cell) {
+  if (!cell) return { ref, kind: "number", value: null };
+  if (cell.kind === "string") return { ref, kind: "string", value: cell.value };
+  if (cell.kind === "number") return { ref, kind: "number", value: cell.value };
+  return { ref, kind: "number", value: null };
+}
+
 // ---- PSI SAP RAW pipeline ----
 // 'PSI SAP RAW' columns A..BR (70 cols) match the user's own "네덜란드 PSI SAP
 // RAW" export column-for-column, so this is a straight row-append copy (no
