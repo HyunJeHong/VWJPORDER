@@ -1,3 +1,8 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>VW JP 대시보드</title>
 <style>
 :root{
@@ -65,6 +70,9 @@ h1{font-size:1.3rem;font-weight:700;margin:0 0 4px}
 .issue-list .item.warn{color:var(--red)}
 .issue-list .item.warn b{color:var(--red)}
 
+.warn-box{background:color-mix(in srgb, var(--red) 12%, var(--surface));border:1px solid var(--red);border-radius:8px;padding:10px 12px;font-size:0.8rem;line-height:1.6;margin-bottom:12px}
+.warn-box b{color:var(--red)}
+
 .dl-row{display:flex;gap:8px;margin-top:16px}
 .dl-btn{flex:1;background:var(--accent);color:var(--accent-fg);border:none;border-radius:9px;padding:12px;text-align:center;font-size:0.84rem;font-weight:700;cursor:pointer;display:none}
 .dl-btn.show{display:block}
@@ -83,7 +91,35 @@ h1{font-size:1.3rem;font-weight:700;margin:0 0 4px}
 .autodetect-result .item b{color:var(--fg)}
 .autodetect-result .item.warn{color:var(--red)}
 .autodetect-result .item.warn b{color:var(--red)}
+
+.date-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:6px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.date-card input[type=date]{font-size:1rem;padding:9px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--fg)}
+.date-card .cw-big{font-size:1.7rem;font-weight:700;color:var(--accent);line-height:1.1}
+.date-card .cw-sub{font-size:0.74rem;color:var(--fg-dim);margin-top:2px}
+.date-lab{font-size:0.72rem;color:var(--fg-dim);margin-bottom:4px}
+.date-warn{font-size:0.78rem;color:var(--red);margin:4px 2px 0;min-height:1em}
+details.adv{margin:10px 0 0}
+details.adv>summary{cursor:pointer;font-size:0.8rem;color:var(--fg-dim);padding:6px 2px}
+.banner{border-radius:10px;padding:12px 14px;font-weight:700;font-size:0.95rem;margin-bottom:12px}
+.banner.ok{background:color-mix(in srgb, var(--accent) 14%, var(--surface));color:var(--accent)}
+.banner.check{background:color-mix(in srgb, #d98a1f 16%, var(--surface));color:#9a5b00}
+.banner.stop{background:color-mix(in srgb, var(--red) 14%, var(--surface));color:var(--red)}
+.attn{border:1px solid color-mix(in srgb, #d98a1f 55%, var(--border));border-radius:10px;padding:10px 12px;margin-bottom:10px;background:color-mix(in srgb, #d98a1f 7%, var(--surface))}
+.attn h3{margin:0 0 4px;font-size:0.82rem}
+.attn .item{font-size:0.78rem;line-height:1.65;color:var(--fg)}
+details.ok-details{margin-top:8px}
+details.ok-details>summary{cursor:pointer;font-size:0.8rem;color:var(--fg-dim);padding:4px 0}
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,0.4);display:none;align-items:center;justify-content:center;z-index:2000;padding:16px}
+.modal-bg.show{display:flex}
+.modal{background:var(--surface);color:var(--fg);border-radius:12px;padding:20px;max-width:420px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,0.3)}
+.modal h3{margin:0 0 8px;font-size:1rem}
+.modal p{margin:0 0 6px;font-size:0.84rem;line-height:1.6;color:var(--fg-dim)}
+.modal .btns{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
+.modal .btns button{flex:1;padding:11px 8px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--fg);font-size:0.85rem;cursor:pointer}
+.modal .btns button.primary{background:var(--accent);color:var(--accent-fg);border-color:var(--accent);font-weight:700}
 </style>
+</head>
+<body>
 
 <div class="autodetect-overlay" id="autodetect-overlay">
   <div class="autodetect-overlay-text">여기에 놓으면 파일 종류를 자동으로 인식해서 알맞은 칸에 배정합니다</div>
@@ -91,79 +127,97 @@ h1{font-size:1.3rem;font-weight:700;margin:0 0 4px}
 
 <div class="wrap">
   <h1>VW JP 대시보드</h1>
-  <p class="sub">파일을 올리고 실행을 누르면 브라우저 안에서 바로 처리됩니다. 서버로 전송되지 않고, 마스터·주간재고 파일의 서식·글꼴·수식은 건드리지 않습니다 — 지정된 셀의 값만 채웁니다. 여러 파일을 한꺼번에 페이지 아무 곳에나 드래그하면 종류를 자동으로 인식해서 알맞은 칸에 넣어줍니다 (확실하지 않으면 직접 해당 칸에 넣어주세요).</p>
+  <p class="sub">날짜를 정하고 파일을 올린 뒤 실행하면 브라우저 안에서 바로 처리됩니다 (서버로 전송되지 않습니다). 파일은 페이지 아무 곳에나 한꺼번에 끌어다 놓아도 종류를 알아서 찾아 넣습니다.</p>
   <div class="autodetect-result" id="autodetect-result"></div>
 
-  <div class="group-title">마스터</div>
+  <div class="date-card">
+    <div>
+      <div class="date-lab">기준 날짜 (아무 요일이나 가능)</div>
+      <input type="date" id="f-cwdate">
+    </div>
+    <div style="font-size:1.4rem;color:var(--fg-dim)">→</div>
+    <div>
+      <div class="cw-big" id="cw-big">CW--</div>
+      <div class="cw-sub" id="cw-sub">이 주 월요일 기준으로 SAP·스냅샷·빌링에 적용됩니다</div>
+    </div>
+  </div>
+  <div class="date-warn" id="date-warn"></div>
+
+  <div class="group-title">필수</div>
   <div class="upload-row dropzone">
     <div>
       <div class="label">마스터 파일</div>
-      <div class="hint">VW JP_오더_선적_생산계획...xlsx</div>
+      <div class="hint">VW_JP_오더_선적_생산계획…xlsx</div>
       <div class="filename" id="fn-master"></div>
     </div>
     <input type="file" id="f-master" accept=".xlsx">
   </div>
-  <div class="upload-row">
-    <div>
-      <div class="label">기준 날짜(CW)</div>
-      <div class="hint">PSI SAP RAW 반영 시 사용 예정</div>
-    </div>
-    <input type="date" id="f-cwdate">
-  </div>
-
-  <div class="group-title">빌링Raw</div>
   <div class="upload-row dropzone">
-    <div><div class="label">네덜란드 빌링 Raw</div><div class="filename" id="fn-nl"></div></div>
+    <div><div class="label">네덜란드 빌링 Raw</div><div class="hint">스페인과 같이 올려야 합니다</div><div class="filename" id="fn-nl"></div></div>
     <input type="file" id="f-nl" accept=".xlsx">
   </div>
   <div class="upload-row dropzone">
     <div><div class="label">스페인 빌링 Raw</div><div class="filename" id="fn-es"></div></div>
     <input type="file" id="f-es" accept=".xlsx">
   </div>
-
-  <div class="group-title">Stock Status</div>
   <div class="upload-row dropzone">
     <div>
-      <div class="label">주간재고(Stock Status) 파일</div>
+      <div class="label">주간재고 (Stock Status) 파일</div>
+      <div class="hint">PIC 는 홍현제 행만 채웁니다</div>
       <div class="filename" id="fn-stock"></div>
     </div>
     <input type="file" id="f-stock" accept=".xlsx">
   </div>
-  <div class="upload-row">
-    <div><div class="label">PIC(내 이름)</div></div>
-    <input type="text" id="f-pic" value="홍현제">
-  </div>
+  <input type="hidden" id="f-pic" value="홍현제">
 
-  <div class="group-title">Sellin</div>
+  <div class="group-title">올릴 때만 반영</div>
   <div class="upload-row dropzone">
-    <div><div class="label">Sellin 원본 파일</div><div class="hint">가공하지 않은 원본 그대로 업로드</div><div class="filename" id="fn-sellin"></div></div>
+    <div><div class="label">Forecast Hankook (윈터타이어)</div><div class="filename" id="fn-fh"></div></div>
+    <input type="file" id="f-fh" accept=".xlsx">
+  </div>
+  <div class="upload-row dropzone">
+    <div><div class="label">PSI SAP RAW (네덜란드)</div><div class="hint">가공하지 않은 원본 그대로</div><div class="filename" id="fn-psisap"></div></div>
+    <input type="file" id="f-psisap" accept=".xlsx">
+  </div>
+  <div class="upload-row dropzone">
+    <div><div class="label">Sellin 원본</div><div class="hint">가공하지 않은 원본 그대로</div><div class="filename" id="fn-sellin"></div></div>
     <input type="file" id="f-sellin" accept=".xlsx">
   </div>
 
-  <div class="group-title">PSI SAP RAW</div>
-  <div class="upload-row dropzone">
-    <div><div class="label">PSI SAP RAW (네덜란드)</div><div class="hint">가공하지 않은 원본 그대로 업로드</div><div class="filename" id="fn-psisap"></div></div>
-    <input type="file" id="f-psisap" accept=".xlsx">
-  </div>
-
-  <div class="group-title">Forecast Hankook</div>
-  <div class="upload-row dropzone">
-    <div><div class="label">Forecast Hankook (윈터타이어)</div><div class="hint">가공하지 않은 원본 그대로 업로드</div><div class="filename" id="fn-fh"></div></div>
-    <input type="file" id="f-fh" accept=".xlsx">
-  </div>
+  <details class="adv">
+    <summary>고급: Forecast Hankook 날짜를 따로 지정</summary>
+    <div class="upload-row">
+      <div>
+        <div class="label">FH 기준 날짜</div>
+        <div class="hint">비워 두거나 위 날짜와 같게 두면 위 날짜를 씁니다. FH 파일을 받은 날이 다를 때만 바꾸세요</div>
+      </div>
+      <input type="date" id="f-fhdate">
+    </div>
+  </details>
 
   <button class="run-btn" id="run-btn">실행</button>
   <div class="status-line" id="status-line"></div>
   <div class="err" id="err-box"></div>
 
   <div class="result" id="result-box">
-    <h2>처리 결과</h2>
     <div id="result-body"></div>
   </div>
 
   <div class="dl-row">
     <button class="dl-btn" id="dl-master">⬇ 마스터 파일 다운로드</button>
     <button class="dl-btn" id="dl-stock">⬇ Stock Status 다운로드</button>
+  </div>
+</div>
+
+<div class="modal-bg" id="snap-modal">
+  <div class="modal">
+    <h3>MR 스냅샷을 저장하시겠습니까?</h3>
+    <p id="snap-msg"></p>
+    <div class="btns">
+      <button class="primary" id="snap-save">저장하고 계속</button>
+      <button id="snap-skip">저장 없이 계속</button>
+      <button id="snap-cancel">취소</button>
+    </div>
   </div>
 </div>
 
@@ -176,8 +230,6 @@ const XP = (function(){
 // Every other byte of the worksheet XML — styles, conditional formatting,
 // merged cells, other rows/cells — is left untouched. No shared-strings
 // table mutation: new text values are written as inline strings.
-// This module has no dependency on JSZip / DOMParser and can run
-// identically in Node (for testing) and in the browser (shipped code).
 
 function escapeXmlText(s) {
   return String(s)
@@ -197,30 +249,23 @@ function decodeXmlEntities(s) {
     .replace(/&amp;/g, "&");
 }
 
-// Escape a cell ref for safe use inside a RegExp (refs are alnum, but be defensive)
 function escapeRe(s) {
   return String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-// Build the regex that matches an entire <c r="REF" ...>...</c> or <c r="REF" .../> element.
 function cellRegex(ref) {
-  // REF must be followed by a non-digit/non-letter boundary (") so "Y2" doesn't match "Y20"
   return new RegExp(
     '<c r="' + escapeRe(ref) + '"([^>]*?)(/>|>([\\s\\S]*?)<\\/c>)'
   );
 }
 
-// Strip a `t="..."` attribute from an attribute string (we set our own t as needed).
 function stripTypeAttr(attrs) {
   return attrs.replace(/\s+t="[^"]*"/, "");
 }
 
 /**
  * Find a cell in sheet XML. Returns null if the <c> element for that ref
- * does not exist in the XML (caller must decide how to handle that —
- * this engine intentionally does NOT synthesize new cells, since every
- * cell we need to touch in the target sheets already exists as a
- * template cell with its own style).
+ * does not exist (this engine intentionally does NOT synthesize new cells).
  */
 function findCell(xml, ref) {
   const re = cellRegex(ref);
@@ -229,13 +274,6 @@ function findCell(xml, ref) {
   return { match: m[0], attrs: m[1], index: m.index };
 }
 
-/**
- * Read a cell's raw value from sheet XML.
- * Returns { kind: 'empty'|'number'|'string'|'bool'|'error', value }
- * `value` for 'number' is a JS number (may represent an Excel date serial —
- * caller decides based on which cell it is). For 'string' it's the decoded text
- * (resolving shared-string index via sharedStrings array if t="s").
- */
 function readCell(xml, ref, sharedStrings) {
   const cell = findCell(xml, ref);
   if (!cell) return { kind: "missing", value: null };
@@ -262,7 +300,6 @@ function readCell(xml, ref, sharedStrings) {
   if (t === "e") {
     return { kind: "error", value: vMatch ? vMatch[1] : "#N/A" };
   }
-  // numeric (t omitted)
   if (!vMatch) return { kind: "empty", value: null };
   return { kind: "number", value: parseFloat(vMatch[1]) };
 }
@@ -275,25 +312,12 @@ function extractInner(fullMatch) {
 }
 
 /**
- * Write a numeric value into an existing cell. The cell MUST already exist
- * in the XML (this engine never invents new <c> elements — every target
- * cell in the sheets we touch is a pre-existing template cell).
- * Preserves the cell's style (`s="..."`) attribute exactly; drops any
- * `t="..."` (switching the cell to the default numeric type) and any
- * cached `<f>` formula (we only ever write to plain-value template cells,
- * never to formula cells, but this keeps the function safe either way —
- * it deliberately does NOT preserve a formula, so callers must never
- * call this on a cell that legitimately holds a live formula).
- * Returns the new full sheet XML, or throws if the cell ref isn't found.
+ * Write a numeric value into an existing cell. Preserves the style (`s`)
+ * attribute; drops `t=` and any formula (<f>). NaN/Infinity -> blank cell.
  */
 function writeNumber(xml, ref, num) {
   const cell = findCell(xml, ref);
   if (!cell) throw new Error("셀을 찾을 수 없습니다: " + ref);
-  // Hard safety net: NaN/Infinity must never reach the XML as literal text
-  // (e.g. "<v>NaN</v>"), which Excel treats as a corrupt/unreadable cell.
-  // A caller passing NaN almost always means "the source cell held a
-  // formula error (#VALUE! etc.), not a real number" -- treat it exactly
-  // like null/undefined: leave the cell blank rather than write garbage.
   if (typeof num === "number" && !Number.isFinite(num)) num = null;
   const attrs = stripTypeAttr(cell.attrs);
   const replacement =
@@ -304,19 +328,8 @@ function writeNumber(xml, ref, num) {
 }
 
 /**
- * Refresh ONLY the cached <v> of a cell that holds a live formula (<f>...</f>
- * or a shared-formula slave with an empty <f .../> self-close), leaving the
- * formula itself completely untouched. Use this after writing new inputs
- * that a formula cell depends on, so the delivered file shows the correct
- * number immediately -- not a stale cached value waiting on the viewer to
- * recalculate (which this engine cannot control or guarantee: some Excel
- * calc-mode/viewer combinations do not honor fullCalcOnLoad reliably).
- * Throws if the cell doesn't exist or doesn't actually hold a formula
- * (refuses to turn a plain value cell into a fake "formula" via this path --
- * that's writeNumber's job). `num` may also be a string, for a formula that
- * legitimately returns text (e.g. an IF() chain returning a label) -- that
- * cell must already be t="str" (this function never changes what KIND of
- * result the formula produces, only refreshes the cached value to match).
+ * Refresh ONLY the cached <v> of a cell that holds a live formula, leaving
+ * the formula itself untouched.
  */
 function refreshFormulaCache(xml, ref, num) {
   const cell = findCell(xml, ref);
@@ -324,10 +337,6 @@ function refreshFormulaCache(xml, ref, num) {
   const inner = cell.match.endsWith("/>") ? "" : extractInner(cell.match);
   const fMatch = inner.match(/<f[^>]*\/>|<f[^>]*>[\s\S]*?<\/f>/);
   if (!fMatch) throw new Error("수식 셀이 아닙니다 (refreshFormulaCache는 기존 수식의 캐시값만 갱신합니다): " + ref);
-  // valid number -> plain numeric cell (t= attr dropped); string -> text
-  // formula result (t="str"); NaN/Infinity (the formula would itself error,
-  // e.g. #DIV/0!) -> mark as an error cell so Excel doesn't display a bogus
-  // number masquerading as a real result.
   const attrs = stripTypeAttr(cell.attrs);
   let newInner, newAttrs;
   if (typeof num === "string") {
@@ -356,14 +365,8 @@ function writeInlineString(xml, ref, text) {
 }
 
 function formatNumber(n) {
-  // JS's own String()/toString() already produces the shortest decimal
-  // string that round-trips to the exact same IEEE-754 double (same
-  // guarantee as Python's float repr, which is what Excel/openpyxl also
-  // rely on) -- e.g. String(1490.3999999999999) === "1490.4". A previous
-  // version of this function ran the value through Math.round(n*1e6)/1e6
-  // hoping to "clean up" float noise; that round-trip does not change
-  // JS's shortest-round-trip formatting and is unnecessary, so it was
-  // removed rather than risk it distorting a legitimately precise value.
+  // JS's String() already yields the shortest decimal that round-trips to the
+  // same IEEE-754 double (same guarantee Excel/openpyxl rely on).
   return String(n);
 }
 
@@ -388,13 +391,6 @@ function getRowSpan(xml, rowNum) {
   return { text: m[0], index: m.index, length: m[0].length };
 }
 
-/**
- * Apply several cell writes within one row in a single splice.
- * edits: array of { ref, kind: 'number'|'string', value }
- * Returns the updated full sheet xml. Throws if the row or any target
- * cell is missing (callers should pre-check with getRowSpan when a row
- * may legitimately be absent).
- */
 function applyRowEdits(xml, rowNum, edits) {
   const row = getRowSpan(xml, rowNum);
   if (!row) throw new Error("행을 찾을 수 없습니다: " + rowNum);
@@ -417,7 +413,7 @@ function readRowCells(xml, rowNum, refs, sharedStrings) {
 }
 
 
-return { getRowSpan, applyRowEdits, readRowCells, findCell, readCell, writeNumber, writeInlineString, refreshFormulaCache, excelSerialToUTCDate, utcDateToExcelSerial, ymd, decodeXmlEntities, escapeXmlText };
+return { formatNumberPublic: (n) => String(n), getRowSpan, applyRowEdits, readRowCells, findCell, readCell, writeNumber, writeInlineString, refreshFormulaCache, excelSerialToUTCDate, utcDateToExcelSerial, ymd, decodeXmlEntities, escapeXmlText };
 })();
 
 // ==== colutil.js (namespaced as CU) ====
@@ -442,25 +438,18 @@ function escapeRe(s) {
   return String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-// Pull one attribute's value out of a single tag's raw text, independent of
-// attribute order or namespace-prefixed siblings (e.g. r:id vs id).
 function getAttr(tagText, attrName) {
   const m = new RegExp("[\\s:]" + escapeRe(attrName) + '="([^"]*)"').exec(" " + tagText);
   return m ? XP.decodeXmlEntities(m[1]) : null;
 }
 
-// workbook.xml + workbook.xml.rels -> { sheetName -> internal zip path }
-// Order-agnostic: does not assume name= comes before r:id= (openpyxl and
-// real Excel both occur in the wild with different attribute orders and
-// different xmlns: placement), and matches the sheet name after decoding
-// XML entities (Excel escapes & as &amp; in sheet names).
 function resolveSheetPath(workbookXml, relsXml, sheetName) {
   const sheetTags = workbookXml.match(/<sheet\b[^>]*\/?>/g) || [];
   let rid = null;
   for (const tag of sheetTags) {
     const nm = getAttr(tag, "name");
     if (nm === sheetName) {
-      rid = getAttr(tag, "id"); // matches r:id via the namespace-agnostic [\s:]id=" pattern
+      rid = getAttr(tag, "id");
       break;
     }
   }
@@ -479,8 +468,6 @@ function resolveSheetPath(workbookXml, relsXml, sheetName) {
   return "xl/" + target.replace(/^\.?\//, "");
 }
 
-// workbook.xml.rels -> internal zip path of sharedStrings.xml, or null if
-// the workbook has no shared strings part (e.g. every string is inline).
 function resolveSharedStringsPath(relsXml) {
   const relTags = relsXml.match(/<Relationship\b[^>]*\/?>/g) || [];
   for (const tag of relTags) {
@@ -513,16 +500,8 @@ return { resolveSheetPath, resolveSharedStringsPath, parseSharedStrings, getAttr
 
 // ==== pipelines.js (namespaced as PL; P -> XP, W -> WU, colLetter -> CU.colLetter) ====
 const PL = (function(){
-// Pipeline logic shared between the Node test harness and the browser
-// dashboard. Depends only on xlsx_patch.js (P) and workbook_util.js (W) --
-// no JSZip here. Callers provide a "zipLike" object per workbook:
+// Pipeline logic. Callers provide a "zipLike" object per workbook:
 //   { readText(path) -> Promise<string|null>, writeText(path, text) -> Promise<void> }
-// In Node this is backed by fs; in the browser it is backed by a JSZip
-// instance (see dashboard.html). This separation is what lets the exact
-// same validated pipeline code run in both places.
-
-
-
 
 async function resolveSheetXml(zipLike, sheetName) {
   const wbXml = await zipLike.readText("xl/workbook.xml");
@@ -543,95 +522,1133 @@ async function resolveSharedStrings(zipLike) {
   return WU.parseSharedStrings(xml || "");
 }
 
-// ---- 빌링Raw pipeline ----
-// cols 1-9 <- raw cols 1-9 direct; target col 10 (J, "CW" helper) always
-// left blank; target cols 11-35 <- raw cols 10-34 (target = raw + 1).
-// Validated 0-diff against the proven Python pipeline for this exact mapping.
+// ---- 날짜/주차 헬퍼 (기준 주차 이동, 지난 주차 고정에 사용) ----
 
-// A cell counts as "has data" only if it's non-missing/non-empty AND (for
-// strings) not just an empty/whitespace string. Some raw exports leave a
-// trailing row whose cells physically exist (t="inlineStr" etc.) but hold
-// "" -- readCell reports that as kind:"string", value:"" rather than
-// kind:"empty", so without this extra check such a row would be treated as
-// real data and, worse, WRITTEN OVER whatever the target template row
-// already held (template rows are addressed by position, not by any key --
-// see runBillingPipeline/runPsiSapPipeline), silently blanking real data.
-function cellHasData(cell) {
-  if (!cell || cell.kind === "missing" || cell.kind === "empty") return false;
-  if (cell.kind === "string") return String(cell.value).trim() !== "";
-  return true;
+// 선택한 날짜가 속한 주의 월요일을 엑셀 시리얼로 변환 (워크북의 기준 CW 수식과 같은 월요일)
+function mondaySerialOfDate(dateInput) {
+  const d = dateInput instanceof Date ? dateInput : new Date(dateInput);
+  const utc = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  const dayNum = utc.getUTCDay() || 7; // Mon=1..Sun=7
+  utc.setUTCDate(utc.getUTCDate() - (dayNum - 1));
+  return XP.utcDateToExcelSerial(utc);
 }
 
-function loadRawRows(sheetXml, sharedStrings, maxCol) {
-  const rowNums = [...sheetXml.matchAll(/<row r="(\d+)"/g)].map((m) => parseInt(m[1], 10));
-  const last = rowNums.length ? Math.max(...rowNums) : 1;
-  const rows = [];
-  for (let r = 2; r <= last; r++) {
-    const refs = [];
-    for (let c = 1; c <= maxCol; c++) refs.push(CU.colLetter(c) + r);
-    const cells = XP.readRowCells(sheetXml, r, refs, sharedStrings);
-    const anyFirst9 = refs.slice(0, 9).some((ref) => cellHasData(cells[ref]));
-    if (!anyFirst9) continue;
-    rows.push(refs.map((ref) => cells[ref]));
+// 엑셀 시리얼(월요일) -> ISO 주차 번호 (UTC 기준 계산, 로컬 타임존 영향 없음)
+function isoWeekOfSerial(serial) {
+  const d = XP.excelSerialToUTCDate(serial);
+  const utc = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+  const dayNum = utc.getUTCDay() || 7;
+  utc.setUTCDate(utc.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(utc.getUTCFullYear(), 0, 1));
+  return Math.ceil(((utc - yearStart) / 86400000 + 1) / 7);
+}
+
+// ---- 빌링Raw pipeline (v2) ----
+// 변경점 (이전 방식의 문제):
+//  - 마스터 빌링Raw 시트의 기존 행 수(364행)까지만 쓰고 나머지를 버렸음 -> 필요한 만큼 행을 새로 만든다.
+//  - 열 위치(원본 10~34열 -> 마스터 11~35열)로 복사했음 -> 헤더 이름으로 짝지음. (마스터의 'CW' 보조 열은 건너뜀)
+//  - 소계 행(Billing Doc. 이 비어 있는 줄)이 데이터 행으로 들어갔음 -> 제외.
+//  - 쓴 행 수와 수량 합계를 원본과 대조한다.
+// rawInputs: [{ zip, corp: "NL" | "ES", label }]
+const BILLING_REQUIRED = ["Billing Doc.", "Posting date", "Sold-to party", "Ship-to", "Plant", "Product", "01.Sales Qty"];
+
+function headerOccurrences(grid, rowNum) {
+  // 이름 -> [열번호...] (같은 이름이 여러 번 나오면 등장 순서대로)
+  const m = new Map();
+  const cols = [...(grid.get(rowNum) || new Map()).entries()].sort((a, b) => a[0] - b[0]);
+  for (const [c, x] of cols) {
+    if (x.kind !== "string") continue;
+    const n = normHeader(x.value);
+    if (!n) continue;
+    if (!m.has(n)) m.set(n, []);
+    m.get(n).push(c);
   }
-  return rows;
+  return m;
 }
 
-function buildEdit(ref, cell) {
-  if (!cell) return { ref, kind: "number", value: null };
-  if (cell.kind === "string") return { ref, kind: "string", value: cell.value };
-  if (cell.kind === "number") return { ref, kind: "number", value: cell.value };
-  return { ref, kind: "number", value: null };
-}
+async function runBillingPipeline(masterZip, rawInputs, opts) {
+  opts = opts || {};
+  if (!rawInputs || !rawInputs.length) throw new Error("빌링 Raw 파일이 없습니다.");
+  const { path: sheetPath, xml: tplXml } = await resolveSheetXml(masterZip, "빌링Raw");
+  const masterShared = await resolveSharedStrings(masterZip);
+  const tplGrid = parseGrid(tplXml, masterShared);
+  const tHdr = headerOccurrences(tplGrid, 1);
+  for (const h of BILLING_REQUIRED) if (!tHdr.has(normHeader(h))) throw new Error("마스터 빌링Raw 시트 1행에 '" + h + "' 헤더가 없습니다.");
 
-/**
- * masterZip: zipLike for the master workbook (will be mutated: 빌링Raw sheet only)
- * rawZips: array of zipLike, one per uploaded raw billing file, in the order
- *          they should be concatenated (e.g. Netherland then Spain).
- */
-async function runBillingPipeline(masterZip, rawZips) {
-  const { path: sheetPath, xml: templateXml } = await resolveSheetXml(masterZip, "빌링Raw");
-  let sheetXml = templateXml;
-
-  let allRows = [];
-  for (const rz of rawZips) {
-    const { xml: rSheetXml } = await resolveSheetXml(rz, "Sheet1");
-    const rShared = await resolveSharedStrings(rz);
-    allRows = allRows.concat(loadRawRows(rSheetXml, rShared, 39));
-  }
-
-  const rowNums = [...sheetXml.matchAll(/<row r="(\d+)"/g)].map((m) => parseInt(m[1], 10));
-  const templateMaxRow = rowNums.length ? Math.max(...rowNums) : 1;
-  const totalRows = Math.max(templateMaxRow, allRows.length + 1);
-
-  const skippedNoTemplateRow = [];
-  for (let outRow = 2; outRow <= totalRows; outRow++) {
-    if (!XP.getRowSpan(sheetXml, outRow)) {
-      skippedNoTemplateRow.push(outRow);
-      continue;
+  // 템플릿 스타일 (열 -> s 속성): 데이터 행 하나에서 가져온다
+  const styleByCol = new Map();
+  {
+    const rowRe = /<row r="(\d+)"[^>]*>([\s\S]*?)<\/row>/g;
+    let m, best = null;
+    while ((m = rowRe.exec(tplXml))) {
+      const rn = parseInt(m[1], 10);
+      if (rn >= 4) { best = m[2]; break; }
     }
-    const idx = outRow - 2;
-    const rowCells = idx < allRows.length ? allRows[idx] : null;
-    const edits = [];
-    for (let c = 1; c <= 9; c++) edits.push(buildEdit(CU.colLetter(c) + outRow, rowCells ? rowCells[c - 1] : null));
-    // column 10 (J / "CW" helper) is intentionally never written -- unused template column
-    for (let c = 11; c <= 35; c++) edits.push(buildEdit(CU.colLetter(c) + outRow, rowCells ? rowCells[c - 2] : null));
-    sheetXml = XP.applyRowEdits(sheetXml, outRow, edits);
+    if (best) {
+      const cre = /<c r="([A-Z]+)\d+"([^>]*?)(?:\/>|>)/g; let cm;
+      while ((cm = cre.exec(best))) {
+        const s = (cm[2].match(/\ss="(\d+)"/) || [])[1];
+        if (s != null) styleByCol.set(colNumFromLetters(cm[1]), s);
+      }
+    }
   }
 
-  await masterZip.writeText(sheetPath, sheetXml);
+  const outRows = []; // [{ cells: Map(targetCol -> {kind,value}), corp }]
+  const perCorp = {};
+  const warnings = [];
+  for (const inp of rawInputs) {
+    const { xml: rxml } = await resolveSheetXml(inp.zip, "Sheet1");
+    const rshared = await resolveSharedStrings(inp.zip);
+    const rgrid = parseGrid(rxml, rshared);
+    const rHdr = headerOccurrences(rgrid, 1);
+    for (const h of BILLING_REQUIRED) if (!rHdr.has(normHeader(h))) throw new Error((inp.label || inp.corp) + " 빌링 Raw 1행에 '" + h + "' 헤더가 없습니다 (파일 형식이 바뀐 것 같습니다).");
+    // 같은 이름 헤더는 순서대로 짝지음
+    const colMap = []; // [rawCol, targetCol]
+    for (const [name, tcols] of tHdr) {
+      const rcols = rHdr.get(name) || [];
+      tcols.forEach((tc, i) => { if (rcols[i] != null) colMap.push([rcols[i], tc]); });
+    }
+    const billCol = rHdr.get(normHeader("Billing Doc."))[0];
+    const dateCol = rHdr.get(normHeader("Posting date"))[0];
+    const qtyCol = rHdr.get(normHeader("01.Sales Qty"))[0];
+    const stat = { rows: 0, qty: 0, minDate: null, maxDate: null, returns: 0, returnQty: 0, subtotalQty: null, noDate: 0 };
+    const rowNums = [...rgrid.keys()].filter((r) => r >= 2).sort((a, b) => a - b);
+    for (const rn of rowNums) {
+      const cols = rgrid.get(rn);
+      const bill = cols.get(billCol);
+      const hasBill = bill && ((bill.kind === "string" && String(bill.value).trim() !== "") || bill.kind === "number");
+      if (!hasBill) {
+        // 합계/소계 줄: 수량 합계는 검산용으로만 읽는다 (맨 위 합계 줄 = 모든 데이터 합계)
+        const q = cols.get(qtyCol);
+        if (q && q.kind === "number" && stat.subtotalQty == null && rn <= 3) stat.subtotalQty = q.value;
+        continue;
+      }
+      const cells = new Map();
+      for (const [rc, tc] of colMap) {
+        const x = cols.get(rc);
+        if (!x || x.kind === "empty") continue;
+        cells.set(tc, x);
+      }
+      const q = cols.get(qtyCol);
+      const qv = q && q.kind === "number" ? q.value : 0;
+      const d = cols.get(dateCol);
+      const dv = d && d.kind === "number" ? d.value : null;
+      stat.rows++; stat.qty += qv;
+      if (qv < 0) { stat.returns++; stat.returnQty += qv; }
+      if (dv == null) stat.noDate++;
+      else { if (stat.minDate == null || dv < stat.minDate) stat.minDate = dv; if (stat.maxDate == null || dv > stat.maxDate) stat.maxDate = dv; }
+      outRows.push({ cells, corp: inp.corp });
+    }
+    perCorp[inp.corp] = stat;
+    if (stat.subtotalQty != null && Math.abs(stat.subtotalQty - stat.qty) > 0.5) warnings.push((inp.label || inp.corp) + ": 원본 합계 " + stat.subtotalQty + " ≠ 읽은 수량 합계 " + stat.qty);
+    if (stat.noDate) warnings.push((inp.label || inp.corp) + ": Posting date 가 없는 행 " + stat.noDate + "개");
+  }
 
+  // 새 행 만들기 (2행부터). 값/문자열만 쓰고 스타일은 템플릿 열 스타일을 따른다.
+  const L = (c) => CU.colLetter(c);
+  let rowsXml = "";
+  let rn = 2;
+  for (const row of outRows) {
+    let cx = "";
+    const cols = [...row.cells.keys()].sort((a, b) => a - b);
+    for (const tc of cols) {
+      const x = row.cells.get(tc);
+      const s = styleByCol.has(tc) ? ' s="' + styleByCol.get(tc) + '"' : "";
+      const ref = L(tc) + rn;
+      if (x.kind === "number") cx += '<c r="' + ref + '"' + s + "><v>" + String(x.value) + "</v></c>";
+      else if (x.kind === "string") cx += '<c r="' + ref + '"' + s + ' t="inlineStr"><is><t xml:space="preserve">' + XP.escapeXmlText(x.value) + "</t></is></c>";
+    }
+    rowsXml += '<row r="' + rn + '">' + cx + "</row>";
+    rn++;
+  }
+  const lastRow = Math.max(1, rn - 1);
+  // 1행(헤더)은 그대로 두고, 2행 이후를 새로 만든 행으로 바꾼다
+  const sdStart = tplXml.indexOf("<sheetData>");
+  const sdEnd = tplXml.indexOf("</sheetData>");
+  if (sdStart < 0 || sdEnd < 0) throw new Error("빌링Raw 시트 구조를 읽을 수 없습니다.");
+  const sd = tplXml.slice(sdStart + "<sheetData>".length, sdEnd);
+  const row1 = /<row r="1"[\s\S]*?<\/row>/.exec(sd);
+  if (!row1) throw new Error("빌링Raw 1행(헤더)을 찾을 수 없습니다.");
+  let newXml = tplXml.slice(0, sdStart) + "<sheetData>" + row1[0] + rowsXml + "</sheetData>" + tplXml.slice(sdEnd + "</sheetData>".length);
+  // 범위/필터 정리: 마지막 행에 맞추고, 이전에 걸려 있던 필터 조건(보이는 행을 제한)은 풀어준다
+  newXml = newXml.replace(/<dimension ref="[^"]*"\/>/, '<dimension ref="A1:AN' + lastRow + '"/>');
+  newXml = newXml.replace(/<autoFilter[^>]*?(?:\/>|>[\s\S]*?<\/autoFilter>)/, '<autoFilter ref="A1:AN' + lastRow + '"/>');
+  newXml = newXml.replace(/<sheetPr filterMode="1">/, "<sheetPr>");
+  await masterZip.writeText(sheetPath, newXml);
+  // 필터 범위 이름
+  const wbXml = await masterZip.readText("xl/workbook.xml");
+  if (wbXml) await masterZip.writeText("xl/workbook.xml", wbXml.replace(/(<definedName name="_xlnm\._FilterDatabase" localSheetId="\d+" hidden="1">빌링Raw!\$A\$1:\$AN\$)\d+(<\/definedName>)/, "$1" + lastRow + "$2"));
+
+  // 법인별 마지막 Posting date -> 실적 마감일 (가장 오래된 쪽에 맞춘다: 한쪽이 먼저 끝나도 빈 날이 생기지 않게)
+  const maxes = Object.entries(perCorp).filter(([, s]) => s.maxDate != null).map(([c, s]) => [c, s.maxDate]);
+  const cutoff = maxes.length ? Math.min(...maxes.map((x) => x[1])) : null;
+  const laterCorps = maxes.filter(([, d]) => cutoff != null && d > cutoff).map(([c, d]) => ({ corp: c, lastDate: d }));
+  return { rowsWritten: outRows.length, perCorp, cutoff, laterCorps, warnings, lastRow, rawRowCount: outRows.length, templateMaxRow: null, skippedNoTemplateRow: [] };
+}
+
+// 빌링 시트: 기준일(C4)/실적마감(F3)을 값으로 넣고, 주별 실적 범위에 토·일을 포함시킨다.
+async function patchBillingSheet(masterZip, opts) {
+  const { path: p, xml: orig } = await resolveSheetXml(masterZip, "빌링");
+  let xml = orig;
+  const out = { baseDate: false, cutoff: false, weekendCells: 0 };
+  const setConst = (ref, num) => {
+    if (!XP.findCell(xml, ref)) return false;
+    xml = XP.writeNumber(xml, ref, num);
+    return true;
+  };
+  if (opts.baseDateSerial != null) out.baseDate = setConst("C4", opts.baseDateSerial);
+  if (opts.cutoffSerial != null) out.cutoff = setConst("F3", opts.cutoffSerial);
+  if (out.baseDate) {
+    const c = XP.findCell(xml, "D4");
+    if (c) xml = XP.writeInlineString(xml, "D4", "← 대시보드에서 입력한 날짜 (엑셀을 열 때마다 바뀌지 않음)");
+  }
+  if (out.cutoff) {
+    const c = XP.findCell(xml, "G3");
+    // G3 은 비워 둠 (이미 H3 에 점검 문구가 있음)
+  }
+  // 주별 실적 합계 상한: MIN(주시작일+4, 실적마감) -> MIN(주시작일+6, 실적마감)  (토·일 빌링 포함)
+  xml = xml.replace(/MIN\(([J-P])\$7\+4,실적마감\)/g, (m, col) => { out.weekendCells++; return "MIN(" + col + "$7+6,실적마감)"; });
+  if (xml !== orig) await masterZip.writeText(p, xml);
+  return out;
+}
+
+
+// ---- MR 스냅샷 (MR_스냅샷_초기 표) ----
+// 한 번 실행할 때마다 "그날의 MR 전체"를 (규격 × 주) 한 줄씩 쌓는다. 같은 조회 주에 다시 실행하면 그 주의 기존 줄을 지우고 다시 쓴다.
+const SNAP_SHEET = "MR_스냅샷_초기";
+const SNAP_KEEP_WEEKS = 26;
+const SNAP_FORWARD_WEEKS = 55;
+
+function snapWeekLabel(mondaySerial) {
+  const d = XP.excelSerialToUTCDate(mondaySerial);
+  const thu = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 3));
+  return thu.getUTCFullYear() + "-CW" + String(isoWeekOfSerial(mondaySerial)).padStart(2, "0");
+}
+function snapYyyymm(serial) {
+  const d = XP.excelSerialToUTCDate(serial);
+  return String(d.getUTCFullYear() * 100 + d.getUTCMonth() + 1);
+}
+
+async function readSnapshotRows(masterZip) {
+  const { path, xml } = await resolveSheetXml(masterZip, SNAP_SHEET);
+  const shared = await resolveSharedStrings(masterZip);
+  const grid = parseGrid(xml, shared);
+  const rows = [];
+  const last = Math.max(...grid.keys());
+  for (let r = 2; r <= last; r++) {
+    const g = (c) => { const x = gcell(grid, r, c); return x && x.kind !== "empty" ? x : null; };
+    const a = g(1);
+    if (!a || a.kind !== "number") continue;
+    rows.push({
+      date: a.value, week: g(2) ? String(g(2).value) : "", corp: g(3) ? String(g(3).value) : "",
+      mcode: g(4) ? g(4).value : null, src: g(5) ? String(g(5).value) : "", spec: g(6) ? String(g(6).value) : "",
+      wkStart: g(7) ? g(7).value : null, wk: g(8) ? String(g(8).value) : "", month: g(9) ? String(g(9).value) : "",
+      qty: g(10) && g(10).kind === "number" ? g(10).value : 0, file: g(11) ? String(g(11).value) : "",
+    });
+  }
+  return { path, xml, rows };
+}
+
+// 확인창용: 저장된 조회일 목록과, 이번 조회일이 이미 있는지
+async function readSnapshotInfo(masterZip, querySerial) {
+  const { rows } = await readSnapshotRows(masterZip);
+  const dates = [...new Set(rows.map((r) => r.date))].sort((a, b) => a - b);
+  const same = dates.filter((d) => d === querySerial);
+  const prev = dates.filter((d) => d < querySerial);
+  const gapWarn = prev.length && querySerial - prev[prev.length - 1] > 7 ? "직전 저장 조회일(" + snapWeekLabel(prev[prev.length - 1]) + ")과 " + Math.round((querySerial - prev[prev.length - 1]) / 7) + "주 간격 — 중간 주가 비어 있습니다" : null;
+  const newer = dates.filter((d) => d > querySerial);
   return {
-    rawRowCount: allRows.length,
-    templateMaxRow,
-    rowsWritten: Math.min(allRows.length, totalRows - 1),
-    skippedNoTemplateRow, // raw rows that had no pre-existing template row to write into (never invents new cells)
+    dates, weeks: dates.map(snapWeekLabel), exists: same.length > 0, existingRows: rows.filter((r) => r.date === querySerial).length,
+    gapWarn, newerWarn: newer.length ? "이미 더 최근 조회일(" + snapWeekLabel(newer[newer.length - 1]) + ")이 저장돼 있습니다" : null,
+    total: rows.length,
   };
 }
 
+function snapBuildRows(calc, querySerial, specMap) {
+  const out = [];
+  const q = querySerial;
+  const i0 = Math.max(0, Math.round((q - calc.E1) / 7));
+  const wkLabel = snapWeekLabel(q);
+  const srcName = { SAP: ["SAP_RAW", "PSI SAP RAW 시트"], HK: ["HANKOOK_FC", "Forecast Hankook 시트"], ES: ["PSI_ES", "PSI Raw_ES 시트"] };
+  const seen = new Set();
+  for (const rw of calc.rows) {
+    if (rw.mcode == null || !rw.corp) continue;
+    const key = rw.corp + "|" + Math.round(rw.mcode);
+    const pick = PL_pickRow(calc, key);
+    if (pick !== rw) continue; // 같은 키가 여러 줄이면 데이터 줄 하나만
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const [gubun, file] = rw.kind ? srcName[rw.kind] : [rw.corp === "OE Sales Team 2" ? "JP_PLAN" : "MANUAL", "MR_순수 직접 입력값"];
+    const spec = specMap.get(key) || specMap.get("*|" + Math.round(rw.mcode)) || "";
+    let n = 0;
+    for (let i = i0; i < calc.NW && n < SNAP_FORWARD_WEEKS; i++) {
+      const v = rw.weekly[i];
+      const wkMon = calc.weeks[i].monday;
+      if (rw.kind === "ES") {
+        if (calc.es.max != null && wkMon > calc.es.max) break;
+      } else if (v == null) continue;
+      out.push({ date: q, week: wkLabel, corp: rw.corp, mcode: Math.round(rw.mcode), src: gubun, spec, wkStart: wkMon, wk: snapWeekLabel(wkMon), month: snapYyyymm(wkMon), qty: v == null ? 0 : v, file });
+      n++;
+    }
+  }
+  return out;
+}
+function PL_pickRow(calc, key) { return pickDataRow(calc.byKey.get(key)); }
+
+async function writeSnapshot(masterZip, calc, opts) {
+  const q = opts.querySerial;
+  const cur = await readSnapshotRows(masterZip);
+  const specMap = new Map();
+  for (const r of cur.rows) if (r.spec && r.mcode != null) { specMap.set(r.corp + "|" + Math.round(r.mcode), r.spec); specMap.set("*|" + Math.round(r.mcode), r.spec); }
+  const fresh = snapBuildRows(calc, q, specMap);
+  // 같은 조회일 삭제 -> 최근 26개 조회일만 유지 -> 새 줄 추가
+  let kept = cur.rows.filter((r) => r.date !== q);
+  const dates = [...new Set(kept.map((r) => r.date).concat([q]))].sort((a, b) => b - a).slice(0, SNAP_KEEP_WEEKS);
+  const dropped = [...new Set(kept.map((r) => r.date))].filter((d) => !dates.includes(d));
+  kept = kept.filter((r) => dates.includes(r.date));
+  const all = kept.concat(fresh).sort((a, b) => a.date - b.date);
+
+  const sdStart = cur.xml.indexOf("<sheetData>"), sdEnd = cur.xml.indexOf("</sheetData>");
+  const row1 = /<row r="1"[\s\S]*?<\/row>/.exec(cur.xml.slice(sdStart, sdEnd));
+  const styles = { A: 94, B: 2, C: 2, D: 2, E: 2, F: 2, G: 94, H: 2, I: 2, J: 187, K: 2 };
+  const str = (ref, s, t) => '<c r="' + ref + '" s="' + s + '" t="inlineStr"><is><t xml:space="preserve">' + XP.escapeXmlText(String(t)) + "</t></is></c>";
+  const num = (ref, s, v) => '<c r="' + ref + '" s="' + s + '"><v>' + String(v) + "</v></c>";
+  let rowsXml = "", rn = 2;
+  for (const r of all) {
+    rowsXml += '<row r="' + rn + '" spans="1:11">' + num("A" + rn, styles.A, r.date) + str("B" + rn, 2, r.week) + str("C" + rn, 2, r.corp) + num("D" + rn, 2, r.mcode) +
+      str("E" + rn, 2, r.src) + str("F" + rn, 2, r.spec) + num("G" + rn, styles.G, r.wkStart) + str("H" + rn, 2, r.wk) + str("I" + rn, 2, r.month) +
+      num("J" + rn, styles.J, r.qty) + str("K" + rn, 2, r.file) + "</row>";
+    rn++;
+  }
+  const lastRow = rn - 1;
+  let xml = cur.xml.slice(0, sdStart) + "<sheetData>" + (row1 ? row1[0] : "") + rowsXml + "</sheetData>" + cur.xml.slice(sdEnd + "</sheetData>".length);
+  xml = xml.replace(/<dimension ref="[^"]*"\/>/, '<dimension ref="A1:K' + lastRow + '"/>');
+  await masterZip.writeText(cur.path, xml);
+  // 표(테이블) 범위
+  const relPath = cur.path.replace(/worksheets\/([^/]+)$/, "worksheets/_rels/$1.rels");
+  const rels = await masterZip.readText(relPath);
+  let tableUpdated = false;
+  if (rels) {
+    const m = /Target="\.\.\/tables\/([^"]+)"/.exec(rels);
+    if (m) {
+      const tp = "xl/tables/" + m[1];
+      const t = await masterZip.readText(tp);
+      if (t) {
+        await masterZip.writeText(tp, t.replace(/(<table\b[^>]*\sref=")[^"]*(")/, "$1A1:K" + lastRow + "$2").replace(/(<autoFilter\b[^>]*\sref=")[^"]*(")/, "$1A1:K" + lastRow + "$2"));
+        tableUpdated = true;
+      }
+    }
+  }
+  return { added: fresh.length, replaced: cur.rows.filter((r) => r.date === q).length, droppedWeeks: dropped.map(snapWeekLabel), totalRows: all.length, lastRow, tableUpdated, weeksKept: dates.length };
+}
+
+// MR_추이 의 법인 필터(L3)에 "(OE Sales Team 2)" 분기를 더한다. (이미 있으면 그대로)
+async function patchMrTrendCorp(masterZip) {
+  const { path, xml } = await resolveSheetXml(masterZip, "MR_추이");
+  const c = XP.findCell(xml, "L3");
+  if (!c) return { changed: false, reason: "L3 없음" };
+  if (c.match.indexOf("OE Sales Team 2") >= 0) return { changed: false };
+  const re = /(IF\(ISNUMBER\(SEARCH\("\(Netherland\)",C3\)\),"Netherland",)("&lt;&gt;"|"<>")(\))/;
+  if (!re.test(c.match)) return { changed: false, reason: "L3 수식 모양이 달라 건드리지 않음" };
+  const nm = c.match.replace(re, '$1IF(ISNUMBER(SEARCH("(OE Sales Team 2)",C3)),"OE Sales Team 2",$2)$3');
+  await masterZip.writeText(path, xml.slice(0, c.index) + nm + xml.slice(c.index + c.match.length));
+  return { changed: true };
+}
+
+
+// ---- 빌링/롤링 행 짝 검증 ----
+// 빌링·롤링 시트는 MR_순수 의 n번째 줄을 그대로 가져오고, 마스터에서는 구분인자(MR_순수 I열)로 찾아 Billing Sold-to 등을 읽는다.
+// 줄이 밀리거나 구분인자가 다른 줄로 잡히면 엉뚱한 고객 실적이 붙으므로, MR_순수 한 줄마다 (법인, M-Code) 가 마스터의 같은 줄과 일치하는지 확인한다.
+async function checkBillingKeys(masterZip) {
+  const shared = await resolveSharedStrings(masterZip);
+  const mrG = parseGrid((await resolveSheetXml(masterZip, "MR_순수")).xml, shared);
+  const maG = parseGrid((await resolveSheetXml(masterZip, "마스터")).xml, shared);
+  const COL = (L) => colNumFromLetters(L);
+  const maByKey = new Map();
+  for (let r = 5; r <= 60; r++) {
+    const k = gstr(maG, r, COL("U"));
+    if (k && !maByKey.has(k)) maByKey.set(k, r);
+  }
+  const problems = [];
+  let checked = 0;
+  for (let r = 5; r <= 54; r++) {
+    const m = cellKeyNum(gcell(mrG, r, COL("J")));
+    if (m == null) continue;
+    checked++;
+    const corp = gstr(mrG, r, 2);
+    const key = gstr(mrG, r, COL("I"));
+    const mr = maByKey.get(key);
+    if (!key || mr == null) { problems.push({ row: r, corp, mcode: Math.round(m), reason: "마스터에서 구분인자로 줄을 찾지 못함 (빌링 Sold-to 가 비어 실적이 0 으로 나옵니다)" }); continue; }
+    const mCorp = gstr(maG, mr, 2), mM = cellKeyNum(gcell(maG, mr, COL("X")));
+    if (mCorp !== corp || mM == null || Math.round(mM) !== Math.round(m)) {
+      problems.push({ row: r, corp, mcode: Math.round(m), reason: "구분인자로 찾은 마스터 " + mr + "행은 " + mCorp + " " + (mM == null ? "(M-Code 없음)" : Math.round(mM)) + " — 다른 규격 줄입니다" });
+    }
+  }
+  return { checked, problems };
+}
+
+
+// ---- 새 화면 2개: "MR 추이(월별)", "빌링·롤링 vs 확정" ----
+// 기존 시트(MR_추이, 빌링, 롤링_작업, 확정_이력 …)는 그대로 두고, 읽기 쉬운 화면만 추가한다.
+// 값은 전부 기존 시트/스냅샷 표를 가리키는 수식이고, 대시보드가 쓰는 값은 날짜 목록·규격 목록·"이번 주 변한 규격" 뿐이다.
+const SHEET_TREND = "MR 추이(월별)";
+const SHEET_CONFIRM = "빌링·롤링 vs 확정";
+const STYLE_MARK_RE = /<!--vwjp-styles:([0-9,]+)-->/;
+
+function xmlEsc(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
+
+async function ensureViewStyles(masterZip) {
+  let st = await masterZip.readText("xl/styles.xml");
+  const mk = STYLE_MARK_RE.exec(st);
+  if (mk) { const a = mk[1].split(",").map(Number); return { ids: styleIdsFromList(a) }; }
+  const bump = (tag, add) => {
+    const re = new RegExp("<" + tag + ' count="(\\d+)"([^>]*)>');
+    const m = re.exec(st);
+    if (!m) throw new Error("styles.xml 에 <" + tag + "> 가 없습니다.");
+    const base = parseInt(m[1], 10);
+    const items = add.join("");
+    st = st.replace(re, "<" + tag + ' count="' + (base + add.length) + '"$2>');
+    const close = "</" + tag + ">";
+    const idx = st.indexOf(close, st.indexOf("<" + tag + " count="));
+    st = st.slice(0, idx) + items + st.slice(idx);
+    return base;
+  };
+  const font = (b, sz, color) => "<font>" + (b ? "<b/>" : "") + '<sz val="' + sz + '"/><color rgb="' + color + '"/><name val="맑은 고딕"/><family val="2"/><charset val="129"/></font>';
+  const fBase = bump("fonts", [font(1, 16, "FF1B2430"), font(1, 11, "FF1B2430"), font(1, 11, "FFFFFFFF"), font(0, 10, "FF5A6676"), font(0, 11, "FF1B2430"), font(1, 12, "FF1F4DB8")]);
+  const fill = (rgb) => '<fill><patternFill patternType="solid"><fgColor rgb="' + rgb + '"/><bgColor indexed="64"/></patternFill></fill>';
+  const flBase = bump("fills", [fill("FF1B2430"), fill("FFFFF4CC"), fill("FFF4F6F9")]);
+  const bd = (c, sides) => "<border>" + ["left", "right", "top", "bottom"].map((s) => (sides.includes(s) ? "<" + s + ' style="thin"><color rgb="' + c + '"/></' + s + ">" : "<" + s + "/>")).join("") + "<diagonal/></border>";
+  const bBase = bump("borders", [bd("FFE6EAF0", ["bottom"]), bd("FFC5CCD6", ["left", "right", "top", "bottom"])]);
+  // 숫자 서식: #,##0 (3), +#,##0;-#,##0;0
+  const nfRe = /<numFmts count="(\d+)">/;
+  const nm = nfRe.exec(st);
+  let nfDiff = 191;
+  const usedIds = [...st.matchAll(/<numFmt numFmtId="(\d+)"/g)].map((x) => parseInt(x[1], 10));
+  nfDiff = Math.max(191, Math.max(...usedIds) + 1);
+  if (nm) {
+    st = st.replace(nfRe, '<numFmts count="' + (parseInt(nm[1], 10) + 1) + '">');
+    st = st.replace("</numFmts>", '<numFmt numFmtId="' + nfDiff + '" formatCode="\\+#,##0;\\-#,##0;0"/></numFmts>');
+  }
+  const xf = (numFmt, font, fill, border, h) => '<xf numFmtId="' + numFmt + '" fontId="' + font + '" fillId="' + fill + '" borderId="' + border + '" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="' + (h || "general") + '" vertical="center"/></xf>';
+  const FT = fBase, FB = fBase + 1, FH = fBase + 2, FD = fBase + 3, FN = fBase + 4, FS = fBase + 5;
+  const FILL_H = flBase, FILL_IN = flBase + 1, FILL_L = flBase + 2, B_BOT = bBase, B_ALL = bBase + 1;
+  const list = [
+    xf(0, FT, 0, 0, "left"),                 // 0 title
+    xf(0, FH, FILL_H, 0, "center"),          // 1 header
+    xf(0, FN, 0, B_BOT, "left"),             // 2 text
+    xf(3, FN, 0, B_BOT, "right"),            // 3 number
+    xf(nfDiff, FB, FILL_L, B_BOT, "right"),  // 4 diff (bold)
+    xf(0, FB, FILL_IN, B_ALL, "left"),       // 5 input
+    xf(0, FD, 0, 0, "left"),                 // 6 dim note
+    xf(0, FS, 0, 0, "left"),                 // 7 section title
+    xf(180, FN, 0, B_BOT, "left"),           // 8 date yyyy-mm-dd
+    xf(0, FB, 0, B_BOT, "left"),             // 9 bold text
+    xf(3, FB, FILL_L, B_BOT, "right"),       // 10 bold number (total)
+    xf(190, FN, 0, B_BOT, "left"),           // 11 yyyy-mm
+    xf(186, FN, 0, B_BOT, "left"),           // 12 m/d
+    xf(0, FH, FILL_H, 0, "left"),            // 13 header left
+    xf(nfDiff, FN, 0, B_BOT, "right"),       // 14 diff (normal)
+  ];
+  const xBase = bump("cellXfs", list);
+  // 조건부 서식용 dxf: 파랑(늘어남) / 주황(줄어듦)
+  const dxf = (fillRgb, fontRgb) => '<dxf><font><b/><color rgb="' + fontRgb + '"/></font><fill><patternFill patternType="solid"><fgColor rgb="' + fillRgb + '"/><bgColor rgb="' + fillRgb + '"/></patternFill></fill></dxf>';
+  const dBase = bump("dxfs", [dxf("FFDCE8FF", "FF1F4DB8"), dxf("FFFFE6CC", "FFA14E00")]);
+  const all = [xBase, dBase, list.length];
+  st = st.replace(/<\/styleSheet>/, "<!--vwjp-styles:" + xBase + "," + dBase + "," + list.length + "-->" + "</styleSheet>");
+  await masterZip.writeText("xl/styles.xml", st);
+  return { ids: styleIdsFromList(all) };
+}
+function styleIdsFromList(a) {
+  const x = a[0];
+  return { title: x, hdr: x + 1, txt: x + 2, num: x + 3, diff: x + 4, input: x + 5, dim: x + 6, sec: x + 7, date: x + 8, bold: x + 9, totNum: x + 10, ym: x + 11, md: x + 12, hdrL: x + 13, diffN: x + 14, dxBlue: a[1], dxOrange: a[1] + 1 };
+}
+
+// 시트 생성 도우미
+function colL(n) { return CU.colLetter(n); }
+function cStr(ref, s, text) { return '<c r="' + ref + '" s="' + s + '" t="inlineStr"><is><t xml:space="preserve">' + XP.escapeXmlText(String(text)) + "</t></is></c>"; }
+function cNum(ref, s, v) { return '<c r="' + ref + '" s="' + s + '"><v>' + String(v) + "</v></c>"; }
+function cF(ref, s, f) { return '<c r="' + ref + '" s="' + s + '"><f>' + xmlEsc(f) + "</f></c>"; }
+function cEmpty(ref, s) { return '<c r="' + ref + '" s="' + s + '"/>'; }
+function rowXml(r, cells, ht) { return '<row r="' + r + '"' + (ht ? ' ht="' + ht + '" customHeight="1"' : "") + ">" + cells.join("") + "</row>"; }
+
+function buildTrendSheet(S, ctx) {
+  const SN = "MR_스냅샷_초기";
+  const rows = [];
+  const NM = 12, FIRST = 3; // C..N
+  const mcols = []; for (let i = 0; i < NM; i++) mcols.push(colL(FIRST + i));
+  const rng = (c) => SN + "!$" + c + "$2:$" + c + "$60000";
+  rows.push(rowXml(1, [cStr("A1", S.title, "MR 추이 (월별)")], 26));
+  rows.push(rowXml(2, [cStr("A2", S.dim, "규격을 고르면 아래 두 표가 바뀝니다. 파란색 = 전 조회보다 늘어남, 주황색 = 줄어듦. 값은 MR_스냅샷_초기 표에서 읽습니다.")]));
+  rows.push(rowXml(3, [cStr("A3", S.bold, "규격 선택"), ctx.selected ? cStr("C3", S.input, ctx.selected) : cEmpty("C3", S.input), cEmpty("D3", S.input), cEmpty("E3", S.input),
+    cF("F3", S.dim, 'IFERROR("차종: "&INDEX(MR_순수!$D$5:$D$54,MATCH(1,INDEX((MR_순수!$J$5:$J$54=$P$3)*(MR_순수!$B$5:$B$54=$Q$3),0),0)),"")'),
+    cF("P3", S.dim, 'IFERROR(VALUE(LEFT($C$3,FIND(" ",$C$3)-1)),"")'),
+    cF("Q3", S.dim, 'IFERROR(MID($C$3,FIND("(",$C$3)+1,LEN($C$3)-FIND("(",$C$3)-1),"")')]));
+  rows.push(rowXml(4, [cF("P4", S.dim, "COUNT($A$17:$A$42)")]));
+  rows.push(rowXml(5, [cStr("A5", S.sec, "최신 주 vs 최근 4주")]));
+  const hdr = (r, withMonthRef) => [cStr("A" + r, S.hdr, "조회일"), cStr("B" + r, S.hdr, "조회 주"), ...mcols.map((c) => (withMonthRef ? cF(c + r, S.hdr, c + "$16") : null))].filter(Boolean);
+  rows.push(rowXml(6, hdr(6, true)));
+  const lab = ["최신", "1주 전", "2주 전", "3주 전", "4주 전"];
+  for (let k = 0; k < 5; k++) {
+    const r = 7 + k;
+    const cells = [
+      cF("A" + r, S.date, 'IF($P$4-' + k + '<1,"",INDEX($A$17:$A$42,$P$4-' + k + "))"),
+      cF("B" + r, S.bold, 'IF(A' + r + '="","","' + lab[k] + ' · CW"&TEXT(WEEKNUM(A' + r + ',21),"00"))'),
+    ];
+    for (const c of mcols) cells.push(cF(c + r, S.num, 'IF($P$4-' + k + '<1,"",INDEX(' + c + "$17:" + c + "$42,$P$4-" + k + "))"));
+    rows.push(rowXml(r, cells));
+  }
+  for (const [r, text, other] of [[12, "최신 − 1주 전", 8], [13, "최신 − 4주 전", 11]]) {
+    const cells = [cEmpty("A" + r, S.txt), cStr("B" + r, S.bold, text)];
+    for (const c of mcols) cells.push(cF(c + r, S.diff, 'IF(OR(ISBLANK(' + c + "7),NOT(ISNUMBER(" + c + "7)),NOT(ISNUMBER(" + c + other + '))),"",' + c + "7-" + c + other + ")"));
+    rows.push(rowXml(r, cells));
+  }
+  rows.push(rowXml(15, [cStr("A15", S.sec, "조회 주차별 월 MR (아래가 최신 · 최대 26주 보관)")]));
+  const h16 = [cStr("A16", S.hdr, "조회일"), cStr("B16", S.hdr, "조회 주")];
+  mcols.forEach((c, i) => {
+    h16.push(i === 0 ? cF(c + "16", S.hdr, 'IFERROR(TEXT(INDEX($A$17:$A$42,$P$4),"yyyymm"),"")')
+      : cF(c + "16", S.hdr, 'IF(' + mcols[i - 1] + '16="","",TEXT(EDATE(DATE(VALUE(LEFT(' + mcols[i - 1] + "16,4)),VALUE(MID(" + mcols[i - 1] + '16,5,2)),1),1),"yyyymm"))'));
+  });
+  rows.push(rowXml(16, h16));
+  for (let i = 0; i < 26; i++) {
+    const r = 17 + i;
+    const cells = [ctx.dates[i] != null ? cNum("A" + r, S.date, ctx.dates[i]) : cEmpty("A" + r, S.date), cF("B" + r, S.bold, 'IF(A' + r + '="","","CW"&TEXT(WEEKNUM(A' + r + ',21),"00"))')];
+    for (const c of mcols) {
+      cells.push(cF(c + r, S.num, 'IF(OR($A' + r + '="",$P$3=""),"",IF(COUNTIFS(' + rng("A") + ",$A" + r + "," + rng("D") + ",$P$3," + rng("C") + ',$Q$3)=0,"",SUMIFS(' + rng("J") + "," + rng("A") + ",$A" + r + "," + rng("D") + ",$P$3," + rng("C") + ",$Q$3," + rng("I") + "," + c + "$16)))"));
+    }
+    rows.push(rowXml(r, cells));
+  }
+  // 이번 주 변한 규격
+  rows.push(rowXml(45, [cStr("A45", S.sec, ctx.changeTitle || "이번 주 변한 규격")]));
+  rows.push(rowXml(46, ["법인", "M-Code", "월", "지난 조회", "이번 조회", "변화"].map((t, i) => cStr(colL(1 + i) + "46", S.hdr, t))));
+  for (let i = 0; i < 30; i++) {
+    const r = 47 + i, ch = ctx.changes[i];
+    if (!ch) { if (i === 0) rows.push(rowXml(r, [cStr("A" + r, S.dim, "변한 규격 없음 (또는 비교할 지난 조회가 없음)")])); continue; }
+    rows.push(rowXml(r, [cStr("A" + r, S.txt, ch.corp), cNum("B" + r, S.txt, ch.mcode), cStr("C" + r, S.txt, ch.month), cNum("D" + r, S.num, ch.prev), cNum("E" + r, S.num, ch.cur), cNum("F" + r, S.diffN, ch.cur - ch.prev)]));
+  }
+  // 드롭다운용 규격 목록 (숨김 열 AA)
+  const specRows = ctx.specs.slice(0, 78);
+  specRows.forEach((s, i) => { const r = 3 + i; const ex = rows.findIndex((x) => x.startsWith('<row r="' + r + '"')); const cell = cStr("AA" + r, S.dim, s); if (ex >= 0) rows[ex] = rows[ex].replace("</row>", cell + "</row>"); else rows.push(rowXml(r, [cell])); });
+  // 행 순서 정렬 (r 번호 오름차순)
+  rows.sort((a, b) => parseInt(/r="(\d+)"/.exec(a)[1], 10) - parseInt(/r="(\d+)"/.exec(b)[1], 10));
+  const cf = '<conditionalFormatting sqref="C12:N13"><cfRule type="cellIs" dxfId="' + S.dxBlue + '" priority="1" operator="greaterThan"><formula>0</formula></cfRule><cfRule type="cellIs" dxfId="' + S.dxOrange + '" priority="2" operator="lessThan"><formula>0</formula></cfRule></conditionalFormatting>' +
+    '<conditionalFormatting sqref="C18:N42"><cfRule type="expression" dxfId="' + S.dxBlue + '" priority="3"><formula>AND(ISNUMBER(C18),ISNUMBER(C17),C18&gt;C17)</formula></cfRule><cfRule type="expression" dxfId="' + S.dxOrange + '" priority="4"><formula>AND(ISNUMBER(C18),ISNUMBER(C17),C18&lt;C17)</formula></cfRule></conditionalFormatting>' +
+    '<conditionalFormatting sqref="F47:F76"><cfRule type="cellIs" dxfId="' + S.dxBlue + '" priority="5" operator="greaterThan"><formula>0</formula></cfRule><cfRule type="cellIs" dxfId="' + S.dxOrange + '" priority="6" operator="lessThan"><formula>0</formula></cfRule></conditionalFormatting>';
+  const dv = '<dataValidations count="1"><dataValidation type="list" allowBlank="1" showInputMessage="1" showErrorMessage="1" sqref="C3"><formula1>OFFSET($AA$3,0,0,MAX(1,COUNTA($AA$3:$AA$80)),1)</formula1></dataValidation></dataValidations>';
+  const cols = '<cols><col min="1" max="1" width="13" customWidth="1"/><col min="2" max="2" width="18" customWidth="1"/><col min="3" max="14" width="10.5" customWidth="1"/><col min="16" max="17" width="12" customWidth="1" hidden="1"/><col min="27" max="27" width="24" customWidth="1" hidden="1"/></cols>';
+  return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheetPr><tabColor rgb="FF1F4DB8"/></sheetPr><dimension ref="A1:AA80"/><sheetViews><sheetView showGridLines="0" workbookViewId="0"><selection activeCell="C3" sqref="C3"/></sheetView></sheetViews><sheetFormatPr defaultRowHeight="18"/>' + cols + "<sheetData>" + rows.join("") + "</sheetData>" + cf + dv + '<pageMargins left="0.7" right="0.7" top="0.75" bottom="0.75" header="0.3" footer="0.3"/></worksheet>';
+}
+
+function buildConfirmSheet(S) {
+  const rows = [];
+  rows.push(rowXml(1, [cStr("A1", S.title, "빌링·롤링 vs 확정")], 26));
+  rows.push(rowXml(2, [cStr("A2", S.dim, "이번 예상(실적 + 남은 MR)이 내가 확정해 둔 값과 얼마나 다른지 봅니다. 파란색 = 확정보다 많음, 주황색 = 적음. 계산은 빌링·롤링_작업 시트에서 하고 여기는 읽기만 합니다.")]));
+  rows.push(rowXml(3, [cStr("A3", S.bold, "대상월"), cF("B3", S.ym, "빌링!$C$3"), cStr("D3", S.bold, "실적 마감"), cF("E3", S.md, "빌링!$F$3"), cStr("G3", S.bold, "기준일"), cF("H3", S.md, "빌링!$C$4"),
+    cStr("J3", S.bold, "롤링 월"), cF("K3", S.ym, "롤링_작업!$G$6")]));
+  const T = (ref, f) => cF(ref, S.totNum, f);
+  rows.push(rowXml(5, [cStr("A5", S.bold, "합계"), cEmpty("B5", S.txt), cEmpty("C5", S.txt), T("D5", "SUM(D7:D56)"), cEmpty("E5", S.txt), T("F5", "SUM(F7:F56)"), T("G5", "SUM(G7:G56)"), T("H5", "SUM(H7:H56)"),
+    cF("I5", S.diff, "IF(D5=0,\"\",H5-D5)"), cEmpty("J5", S.txt), T("K5", "SUM(K7:K56)"), T("L5", "SUM(L7:L56)"), cF("M5", S.diff, "IF(K5=0,\"\",L5-K5)")]));
+  rows.push(rowXml(6, ["법인", "M-Code", "차종", "확정", "확정 차수", "실적", "남은 MR", "이번 예상", "차이", "", "지난 롤링", "이번 롤링", "차이"].map((t, i) => cStr(colL(1 + i) + "6", S.hdr, t)), 30));
+  for (let i = 0; i < 50; i++) {
+    const r = 7 + i, br = 11 + i, rr = 8 + i;
+    const cells = [
+      cF("A" + r, S.txt, 'IF(빌링!$H' + br + '="","",빌링!$B' + br + ")"),
+      cF("B" + r, S.bold, 'IF(빌링!$H' + br + '="","",빌링!$H' + br + ")"),
+      cF("C" + r, S.txt, 'IF(빌링!$H' + br + '="","",빌링!$G' + br + ")"),
+      cF("D" + r, S.num, 'IF($A' + r + '="","",IF(ISNUMBER(빌링!$AB' + br + "),빌링!$AB" + br + ",IF(ISNUMBER(빌링!$AA" + br + "),빌링!$AA" + br + ",IF(ISNUMBER(빌링!$Z" + br + "),빌링!$Z" + br + ',""))))'),
+      cF("E" + r, S.txt, 'IF($A' + r + '="","",IF(ISNUMBER(빌링!$AB' + br + '),"3차",IF(ISNUMBER(빌링!$AA' + br + '),"2차",IF(ISNUMBER(빌링!$Z' + br + '),"1차","없음"))))'),
+      cF("F" + r, S.num, 'IF($A' + r + '="","",빌링!$I' + br + ")"),
+      cF("G" + r, S.num, 'IF($A' + r + '="","",빌링!$Q' + br + ")"),
+      cF("H" + r, S.num, 'IF($A' + r + '="","",빌링!$S' + br + ")"),
+      cF("I" + r, S.diffN, 'IF(OR($A' + r + '="",NOT(ISNUMBER(D' + r + ")),NOT(ISNUMBER(H" + r + '))),"",H' + r + "-D" + r + ")"),
+      cEmpty("J" + r, S.txt),
+      cF("K" + r, S.num, 'IF($A' + r + '="","",IF(ISNUMBER(롤링_작업!$AB' + rr + "),롤링_작업!$AB" + rr + ',""))'),
+      cF("L" + r, S.num, 'IF($A' + r + '="","",IF(ISNUMBER(롤링_작업!$U' + rr + "),롤링_작업!$U" + rr + ',""))'),
+      cF("M" + r, S.diffN, 'IF(OR($A' + r + '="",NOT(ISNUMBER(K' + r + ")),NOT(ISNUMBER(L" + r + '))),"",L' + r + "-K" + r + ")"),
+    ];
+    rows.push(rowXml(r, cells));
+  }
+  const cf = (sq, p) => '<conditionalFormatting sqref="' + sq + '"><cfRule type="cellIs" dxfId="' + S.dxBlue + '" priority="' + p + '" operator="greaterThan"><formula>0</formula></cfRule><cfRule type="cellIs" dxfId="' + S.dxOrange + '" priority="' + (p + 1) + '" operator="lessThan"><formula>0</formula></cfRule></conditionalFormatting>';
+  const cols = '<cols><col min="1" max="1" width="12" customWidth="1"/><col min="2" max="2" width="11" customWidth="1"/><col min="3" max="3" width="14" customWidth="1"/><col min="4" max="9" width="11" customWidth="1"/><col min="10" max="10" width="3" customWidth="1"/><col min="11" max="13" width="11" customWidth="1"/></cols>';
+  return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheetPr><tabColor rgb="FF1F4DB8"/></sheetPr><dimension ref="A1:M56"/><sheetViews><sheetView showGridLines="0" workbookViewId="0"><pane ySplit="6" topLeftCell="A7" activePane="bottomLeft" state="frozen"/><selection pane="bottomLeft" activeCell="A7" sqref="A7"/></sheetView></sheetViews><sheetFormatPr defaultRowHeight="18"/>' + cols + "<sheetData>" + rows.join("") + "</sheetData>" + cf("I5:I56", 1) + cf("M5:M56", 3) + '<pageMargins left="0.7" right="0.7" top="0.75" bottom="0.75" header="0.3" footer="0.3"/></worksheet>';
+}
+
+// 시트 파일을 만들거나(없으면) 같은 파일에 다시 쓴다.
+async function putSheet(masterZip, name, xml) {
+  let wb = await masterZip.readText("xl/workbook.xml");
+  let rels = await masterZip.readText("xl/_rels/workbook.xml.rels");
+  let ct = await masterZip.readText("[Content_Types].xml");
+  const existing = new RegExp('<sheet [^>]*name="' + name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + '"[^>]*/>').exec(wb);
+  if (existing) {
+    const path = WU.resolveSheetPath(wb, rels, name);
+    await masterZip.writeText(path, xml);
+    return { created: false, path };
+  }
+  const nums = [...rels.matchAll(/Id="rId(\d+)"/g)].map((m) => parseInt(m[1], 10));
+  const rid = "rId" + (Math.max(...nums) + 1);
+  const sids = [...wb.matchAll(/sheetId="(\d+)"/g)].map((m) => parseInt(m[1], 10));
+  const sid = Math.max(...sids) + 1;
+  let n = 100; while (await masterZip.readText("xl/worksheets/sheet" + n + ".xml")) n++;
+  const path = "xl/worksheets/sheet" + n + ".xml";
+  await masterZip.writeText(path, xml);
+  rels = rels.replace("</Relationships>", '<Relationship Id="' + rid + '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet' + n + '.xml"/></Relationships>');
+  ct = ct.replace("</Types>", '<Override PartName="/' + path + '" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>');
+  wb = wb.replace("</sheets>", '<sheet name="' + xmlEsc(name) + '" sheetId="' + sid + '" r:id="' + rid + '"/></sheets>');
+  await masterZip.writeText("xl/workbook.xml", wb);
+  await masterZip.writeText("xl/_rels/workbook.xml.rels", rels);
+  await masterZip.writeText("[Content_Types].xml", ct);
+  return { created: true, path };
+}
+
+// 스냅샷 표에서 날짜 목록·규격 목록·이번 주 변화를 뽑아 두 화면을 (다시) 쓴다.
+async function writeViewSheets(masterZip, calc) {
+  const { styles } = await (async () => { const r = await ensureViewStyles(masterZip); return { styles: r.ids }; })();
+  const snap = await readSnapshotRows(masterZip);
+  const dates = [...new Set(snap.rows.map((r) => r.date))].sort((a, b) => a - b).slice(-26);
+  // 규격 목록: 스냅샷에 있는 (mcode, 법인)
+  const specSet = new Map();
+  for (const r of snap.rows) if (r.mcode != null && r.corp) { const k = Math.round(r.mcode) + " (" + r.corp + ")"; specSet.set(k, (specSet.get(k) || 0) + Math.abs(r.qty)); }
+  const specs = [...specSet.entries()].sort((a, b) => b[1] - a[1]).map((x) => x[0]);
+  // 이전 선택 유지
+  let selected = specs[0] || "";
+  try {
+    const prev = await resolveSheetXml(masterZip, SHEET_TREND);
+    const sh = await resolveSharedStrings(masterZip);
+    const c = XP.readCell(prev.xml, "C3", sh);
+    if (c.kind === "string" && specSet.has(c.value)) selected = c.value;
+  } catch (e) {}
+  // 이번 주 변한 규격: 가장 최근 조회일 vs 바로 이전 조회일, 최근 조회일의 첫 12개월
+  const changes = [];
+  let changeTitle = "이번 주 변한 규격";
+  if (dates.length >= 2) {
+    const cur = dates[dates.length - 1], prev = dates[dates.length - 2];
+    const m0 = snapYyyymm(cur);
+    const months = new Set();
+    let y = parseInt(m0.slice(0, 4), 10), mo = parseInt(m0.slice(4), 10);
+    for (let i = 0; i < 12; i++) { months.add(String(y * 100 + mo)); mo++; if (mo > 12) { mo = 1; y++; } }
+    const agg = new Map();
+    for (const r of snap.rows) {
+      if (r.date !== cur && r.date !== prev) continue;
+      if (!months.has(r.month)) continue;
+      const k = r.corp + "|" + Math.round(r.mcode) + "|" + r.month;
+      if (!agg.has(k)) agg.set(k, { corp: r.corp, mcode: Math.round(r.mcode), month: r.month, prev: 0, cur: 0 });
+      agg.get(k)[r.date === cur ? "cur" : "prev"] += r.qty;
+    }
+    for (const a of agg.values()) if (Math.abs(a.cur - a.prev) >= 1) changes.push(a);
+    changes.sort((a, b) => Math.abs(b.cur - b.prev) - Math.abs(a.cur - a.prev));
+    changeTitle = "이번 주(" + snapWeekLabel(cur) + ") 변한 규격 — 지난 조회(" + snapWeekLabel(prev) + ") 대비, 변화가 큰 순 최대 30건";
+  }
+  const trendXml = buildTrendSheet(styles, { dates, specs, selected, changes: changes.slice(0, 30).map((a) => ({ ...a, prev: Math.round(a.prev), cur: Math.round(a.cur) })), changeTitle });
+  const r1 = await putSheet(masterZip, SHEET_TREND, trendXml);
+  const r2 = await putSheet(masterZip, SHEET_CONFIRM, buildConfirmSheet(styles));
+  return { trend: r1, confirm: r2, specs: specs.length, dates: dates.length, changes: changes.length };
+}
+
+
+// ---- 전체 실행 순서 (화면은 이 함수를 부르기만 한다) ----
+// inputs: { date: Date, fhDate: Date, master, nl, es, psiSap, fh, sellin, stock (모두 zipLike), pic,
+//           onSnapshotConfirm: async (info) => "save" | "skip" | "cancel" }
+async function runAll(inputs) {
+  const M = inputs.master;
+  const res = { warnings: [], steps: [], cancelled: false };
+  const date = inputs.date;
+  if (!(date instanceof Date) || isNaN(date.getTime())) throw new Error("기준 날짜를 입력해주세요.");
+  if ((inputs.nl && !inputs.es) || (!inputs.nl && inputs.es)) throw new Error("빌링 Raw는 네덜란드·스페인 두 파일을 같이 올려야 합니다. (한쪽만 올리면 반대쪽 빌링이 비게 됩니다)");
+
+  const mondayS = mondaySerialOfDate(date);
+  const wk = isoWeekInfo(date);
+  const mkAnchor = (d) => ({ week: isoWeekInfo(d).week, year: isoWeekInfo(d).isoYear, monday: mondaySerialOfDate(d) });
+  const psiNew = mkAnchor(date);
+  const fhDate = inputs.fhDate || date;
+  const fhNew = mkAnchor(fhDate);
+  res.cw = { week: wk.week, year: wk.isoYear, monday: mondayS };
+  const todayGapDays = Math.abs(Math.round((Date.now() - date.getTime()) / 86400000));
+  if (todayGapDays > 14) res.warnings.push("입력한 날짜가 오늘과 " + todayGapDays + "일 차이납니다. 날짜가 맞는지 확인해주세요.");
+
+  // 1) 기준을 옮기기 전 상태로 계산 (지난 주차 고정용)
+  const calcOld = await computeMr(M, {});
+  res.mrIssuesOld = calcOld.issues;
+
+  // 2) 지난 주차 고정
+  res.freeze = await freezePastWeeksV2(M, calcOld, { psi: inputs.psiSap ? psiNew : null, fh: inputs.fh ? fhNew : null });
+
+  // 3) 수식 범위 / 빌링 / PSI / FH
+  res.widen = await widenFhRange(M);
+  if (inputs.nl && inputs.es) {
+    res.billing = await runBillingPipeline(M, [{ zip: inputs.nl, corp: "NL", label: "네덜란드" }, { zip: inputs.es, corp: "ES", label: "스페인" }]);
+    res.billingPatch = await patchBillingSheet(M, { baseDateSerial: XP.utcDateToExcelSerial(new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()))), cutoffSerial: res.billing.cutoff });
+    if (res.billing.laterCorps.length) res.warnings.push("빌링 Raw 마지막 일자가 법인마다 다릅니다 — 실적 마감은 더 이른 쪽(" + XP.ymd(XP.excelSerialToUTCDate(res.billing.cutoff)) + ") 기준입니다.");
+    for (const w of res.billing.warnings) res.warnings.push(w);
+  }
+  if (inputs.psiSap) res.psi = await runPsiSapPipeline(M, inputs.psiSap, date);
+  if (inputs.fh) res.fhr = await runForecastHankookPipeline(M, inputs.fh, fhDate);
+
+  // 4) 기준 주차 저장값 갱신 후 MR 다시 계산
+  const psiA = inputs.psiSap ? psiNew : calcOld.anchors.psi;
+  const fhA = inputs.fh ? fhNew : calcOld.anchors.fh;
+  res.anchorCaches = await refreshAnchorCaches(M, psiA, fhA);
+  const calc = await computeMr(M, { psiAnchor: psiA, fhAnchor: fhA });
+  res.calc = calc;
+  res.mrIssues = calc.issues;
+
+  // 5) 월 MR 연결 복구 + 저장값 갱신 + 비교
+  res.diffs = diffMr(calc);
+  res.links = await restoreMonthlyMrLinks(M, calc);
+  res.caches = await writeMrCaches(M, calc);
+
+  // 5.5) 빌링/롤링 행 짝 검증
+  res.keyCheck = await checkBillingKeys(M);
+
+  // 6) Sellin
+  if (inputs.sellin) res.sellin = await runSellinPipeline(M, inputs.sellin);
+
+  // 7) Stock Status
+  if (inputs.stock) {
+    res.stock = await runStockStatusPipeline(M, inputs.stock, inputs.pic || "홍현제", { calc });
+  }
+
+  // 8) PSI Raw_ES 최신 여부
+  if (calc.es.min != null && calc.es.min < mondayS) {
+    res.warnings.push("PSI Raw_ES(스페인)는 " + snapWeekLabel(Math.floor((calc.es.min - 2) / 7) * 7 + 2) + "부터 시작합니다 (기준 CW" + wk.week + ") — 스페인 PSI를 새로 붙여넣었는지 확인해주세요.");
+  }
+
+  // 9) 스냅샷
+  const snapInfo = await readSnapshotInfo(M, mondayS);
+  res.snapshotInfo = snapInfo;
+  let choice = "save";
+  if (inputs.onSnapshotConfirm) choice = await inputs.onSnapshotConfirm(snapInfo);
+  if (choice === "cancel") { res.cancelled = true; return res; }
+  if (choice === "save") {
+    res.snapshot = await writeSnapshot(M, calc, { querySerial: mondayS });
+    res.trend = await patchMrTrendCorp(M);
+    res.views = await writeViewSheets(M, calc);
+  }
+
+  // 10) 마무리: 계산 순서 목록 제거 + 전체 재계산 강제
+  res.calcChain = await removeCalcChain(M);
+  await forceFullCalcOnLoad(M);
+  if (inputs.stock) { await removeCalcChain(inputs.stock); await forceFullCalcOnLoad(inputs.stock); }
+  return res;
+}
+
+
+// ---- 기준 주차 상태 읽기 / 지난 주차 고정 / 재계산 강제 ----
+//
+// 배경: MR_순수의 주간 수식은 'PSI SAP RAW'!BX1 (SAP) / 'Forecast Hankook'!AM1 (HK)
+// 기준 주차보다 이전 주차를 "" (빈칸)로 만든다. 대시보드가 기준 주차를 앞으로
+// 옮기면, 그 사이에 낀 지난 주차의 MR이 월합계에서 사라진다 (마스터는 K~M열
+// 같은 앞쪽 몇 주만 값으로 고정해 둔 구조). 그래서 기준을 옮기기 전에, 그 사이에
+// 낀 주차의 "현재 저장된 계산값"을 값으로 고정해 둔다.
+// 이 계산값은 마스터가 엑셀에서 재계산·저장된 상태여야 믿을 수 있으므로, 기준 입력
+// (BU1/AJ1)과 저장된 계산값(BV1/AK1)이 일치하는지 먼저 확인하고, 안 맞으면 고정을
+// 건너뛴다 (오래된 값을 고정하지 않기 위함).
+
+const MR_WEEK_FIRST_COL = 11; // K
+const MR_WEEK_LAST_COL = 133; // EC
+
+async function readAnchorState(zipLike, shared, sheetName, textRef, weekRef, dateRef) {
+  try {
+    const { xml } = await resolveSheetXml(zipLike, sheetName);
+    const t = XP.readCell(xml, textRef, shared);
+    const w = XP.readCell(xml, weekRef, shared);
+    const d = XP.readCell(xml, dateRef, shared);
+    if (d.kind !== "number") return { ok: false, reason: "저장된 기준 날짜(" + dateRef + ")가 없음" };
+    let inputWeek = null;
+    if (t.kind === "number") inputWeek = Math.round(t.value);
+    else if (t.kind === "string") {
+      const m = /CW\s*(\d+)/i.exec(t.value) || /^\s*(\d+)\s*$/.exec(t.value);
+      if (m) inputWeek = parseInt(m[1], 10);
+    }
+    if (inputWeek == null) return { ok: false, serial: d.value, reason: "기준 입력(" + textRef + ")을 해석할 수 없음" };
+    if (w.kind !== "number" || Math.round(w.value) !== inputWeek) {
+      return {
+        ok: false,
+        serial: d.value,
+        reason:
+          "입력은 CW" + inputWeek + "인데 저장된 계산값은 CW" + (w.kind === "number" ? Math.round(w.value) : "?") + " — 엑셀에서 재계산·저장되지 않은 파일",
+      };
+    }
+    return { ok: true, serial: d.value, week: inputWeek };
+  } catch (e) {
+    return { ok: false, reason: e && e.message ? e.message : String(e) };
+  }
+}
+
+// 마스터의 PSI/FH 기준 주차 상태 (아무 것도 쓰기 전에 호출할 것)
+async function readAnchorStates(masterZip) {
+  const shared = await resolveSharedStrings(masterZip);
+  const psi = await readAnchorState(masterZip, shared, "PSI SAP RAW", "BU1", "BV1", "BX1");
+  const fh = await readAnchorState(masterZip, shared, "Forecast Hankook", "AJ1", "AK1", "AM1");
+  return { psi, fh };
+}
+
+/**
+ * opts: { psiNewDate?: Date, fhNewDate?: Date } -- 이번 실행에서 기준 주차를 새로 쓸 소스만 넘긴다.
+ * 기준 주차가 앞으로 이동할 때만(새 기준 > 기존 기준), 그 사이 주차의 MR_순수 수식 셀을
+ * 저장된 계산값(숫자)으로 고정한다. 공유수식 셀은 건드리지 않고 건수만 보고한다.
+ */
+async function freezePastWeeks(masterZip, anchorStates, opts) {
+  const out = { changed: false, sources: [] };
+  const plans = [];
+  if (opts.psiNewDate) plans.push({ kind: "psi", label: "PSI SAP", marker: "'PSI SAP RAW'", st: anchorStates.psi, newSerial: mondaySerialOfDate(opts.psiNewDate) });
+  if (opts.fhNewDate) plans.push({ kind: "fh", label: "Forecast Hankook", marker: "'Forecast Hankook'", st: anchorStates.fh, newSerial: mondaySerialOfDate(opts.fhNewDate) });
+  if (!plans.length) return out;
+
+  const shared = await resolveSharedStrings(masterZip);
+  const { path: mrPath, xml: mrXmlOrig } = await resolveSheetXml(masterZip, "MR_순수");
+  let mrXml = mrXmlOrig;
+  const e1 = XP.readCell(mrXml, "E1", shared);
+  const rowNums = [...mrXml.matchAll(/<row r="(\d+)"/g)].map((m) => parseInt(m[1], 10)).filter((r) => r >= 5 && r <= 54);
+
+  for (const pl of plans) {
+    const info = { kind: pl.kind, label: pl.label, status: "none", weeks: "", cells: 0, rows: 0, skippedShared: 0, skippedError: 0 };
+    out.sources.push(info);
+    if (e1.kind !== "number") {
+      info.status = "skipped";
+      info.reason = "MR_순수 E1(롤링 시작일)을 읽을 수 없음";
+      continue;
+    }
+    if (!pl.st || !pl.st.ok) {
+      info.status = "skipped";
+      info.reason = (pl.st && pl.st.reason) || "기준 주차 상태를 읽을 수 없음";
+      continue;
+    }
+    if (pl.newSerial <= pl.st.serial) {
+      info.status = "none"; // 기준이 같거나 과거로 이동 -- 고정할 주차 없음
+      continue;
+    }
+    let firstIdx = Math.max(0, Math.ceil((pl.st.serial - e1.value) / 7));
+    let lastIdx = Math.min(MR_WEEK_LAST_COL - MR_WEEK_FIRST_COL, Math.ceil((pl.newSerial - e1.value) / 7) - 1);
+    if (lastIdx < firstIdx) continue;
+
+    const touchedRows = new Set();
+    for (const r of rowNums) {
+      const span = XP.getRowSpan(mrXml, r);
+      if (!span) continue;
+      let text = span.text;
+      let changedRow = false;
+      for (let i = firstIdx; i <= lastIdx; i++) {
+        const ref = CU.colLetter(MR_WEEK_FIRST_COL + i) + r;
+        const cell = XP.findCell(text, ref);
+        if (!cell) continue;
+        const raw = cell.match.replace(/&apos;/g, "'");
+        if (!/<f[\s>\/]/.test(raw)) continue; // 이미 값인 셀
+        if (raw.indexOf(pl.marker) === -1) continue; // 이 소스를 쓰는 행이 아님
+        if (/<f[^>]*t="shared"/.test(raw)) {
+          info.skippedShared++;
+          continue;
+        }
+        const cached = XP.readCell(text, ref, shared);
+        let val;
+        if (cached.kind === "number" && Number.isFinite(cached.value)) val = cached.value;
+        else if (cached.kind === "empty" || (cached.kind === "string" && String(cached.value) === "")) val = null;
+        else {
+          info.skippedError++;
+          continue;
+        }
+        text = XP.writeNumber(text, ref, val);
+        info.cells++;
+        touchedRows.add(r);
+        changedRow = true;
+      }
+      if (changedRow) mrXml = mrXml.slice(0, span.index) + text + mrXml.slice(span.index + span.length);
+    }
+    info.rows = touchedRows.size;
+    const w1 = isoWeekOfSerial(e1.value + 7 * firstIdx),
+      w2 = isoWeekOfSerial(e1.value + 7 * lastIdx);
+    info.weeks = w1 === w2 ? "CW" + w1 : "CW" + w1 + "~CW" + w2;
+    if (info.cells > 0) {
+      info.status = "frozen";
+      out.changed = true;
+    }
+  }
+  if (out.changed) await masterZip.writeText(mrPath, mrXml);
+  return out;
+}
+
+// 엑셀에서 열 때 전체 재계산을 강제한다 (브라우저에서는 수식을 계산할 수 없으므로,
+// 이 설정이 없으면 새로 쓴 값에 대한 계산 결과가 옛 캐시값으로 남는다).
+async function forceFullCalcOnLoad(zipLike) {
+  const wb = await zipLike.readText("xl/workbook.xml");
+  if (!wb) return false;
+  if (/<calcPr\b[^>]*\bfullCalcOnLoad="1"/.test(wb)) return true;
+  if (!/<calcPr\b[^>]*\/>/.test(wb)) return false;
+  const out = wb.replace(/<calcPr\b([^>]*?)\s*\/>/, (m, attrs) => "<calcPr" + attrs.replace(/\sfullCalcOnLoad="[^"]*"/, "") + ' fullCalcOnLoad="1"/>');
+  await zipLike.writeText("xl/workbook.xml", out);
+  return true;
+}
+
+// ---- 마스터 보정: 월간 MR 연결 복구(키 기준) / 기준 주차 캐시 갱신 / 재계산 값 저장 / 지난 주차 고정 / calcChain 정리 ----
+
+const MONTH_ABBR = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12 };
+
+// 오더_선적 데이터 영역의 마지막 행: 아래쪽에 두 번째 헤더 블록('법인' 헤더)이 시작되기 직전까지 (없으면 39행)
+function ofDataEndRow(ofGrid) {
+  for (let r = OF_DATA_ROW_START + 1; r <= 120; r++) {
+    if (gstr(ofGrid, r, 2) === "법인" || gstr(ofGrid, r, 14) === "M-Code") return r - 1;
+  }
+  return 39;
+}
+
+// 행 XML 안에서 수식 셀의 캐시값만 바꾼다 (수식은 그대로). 수식 셀이 아니거나 셀이 없으면 false.
+function setCachedInRow(rowText, ref, val) {
+  try {
+    return { text: XP.refreshFormulaCache(rowText, ref, val), ok: true };
+  } catch (e) {
+    return { text: rowText, ok: false };
+  }
+}
+
+// 오더_선적 AH~AW(월별 MR)가 MR_순수 월합계(EE~ET)를 가리키도록 복구한다.
+//  - 열: 6행 헤더 "(26.Sep)" ↔ MR_순수 3행 202609 (월 이름으로 찾음)
+//  - 행: (법인, M-Code) 키로 찾음 (행 위치/오프셋을 쓰지 않음). 같은 키가 여러 줄이면 위에서부터 순서대로 짝지음.
+//  - 이미 올바른 수식이면 건드리지 않고 캐시값만 최신으로. 확실하지 않으면 쓰지 않고 보고.
+async function restoreMonthlyMrLinks(masterZip, calc) {
+  const shared = await resolveSharedStrings(masterZip);
+  const { path: ofPath, xml: ofOrig } = await resolveSheetXml(masterZip, "오더_선적");
+  let ofXml = ofOrig;
+  const ofGrid = parseGrid(ofXml, shared);
+  const { xml: mrXml } = await resolveSheetXml(masterZip, "MR_순수");
+  const mrGrid = parseGrid(mrXml, shared);
+
+  const out = { repaired: 0, refreshed: 0, ok: 0, skipped: [], repairedCells: [], verifyFailed: 0 };
+  // 월 열 찾기
+  const ofMonthCols = []; // {col, ym}
+  for (const [c, x] of ofGrid.get(6) || new Map()) {
+    if (x.kind !== "string") continue;
+    const m = /\((\d{2})\.([A-Za-z]{3})\)/.exec(x.value);
+    if (!m || !MONTH_ABBR[m[2].toLowerCase()]) continue;
+    ofMonthCols.push({ col: c, ym: (2000 + parseInt(m[1], 10)) * 100 + MONTH_ABBR[m[2].toLowerCase()] });
+  }
+  const mrMonthCol = new Map(); // ym -> col
+  for (const [c, x] of mrGrid.get(3) || new Map()) if (x.kind === "number" && x.value > 200000 && x.value < 210000) mrMonthCol.set(Math.round(x.value), c);
+  if (!ofMonthCols.length) throw new Error("오더_선적 6행에서 월별 MR 헤더('(26.Sep)' 형식)를 찾지 못했습니다.");
+  const EE = colNumFromLetters("EE");
+
+  const ofByKey = new Map();
+  const ofEnd = ofDataEndRow(ofGrid);
+  for (let r = OF_DATA_ROW_START; r <= ofEnd; r++) {
+    const corp = gstr(ofGrid, r, 2);
+    const mc = cellKeyNum(gcell(ofGrid, r, 14));
+    if (!corp || mc == null) continue;
+    const key = corp + "|" + Math.round(mc);
+    if (!ofByKey.has(key)) ofByKey.set(key, []);
+    ofByKey.get(key).push(r);
+  }
+  const plan = []; // {orow, mrrow(calc row), col, ym}
+  for (const [key, orows] of ofByKey) {
+    const mrList = (calc.byKey.get(key) || []).slice().sort((a, b) => a.row - b.row);
+    if (!mrList.length) { out.skipped.push({ key, reason: "MR_순수에 같은 (법인, M-Code) 행이 없음" }); continue; }
+    if (mrList.length !== orows.length) {
+      out.skipped.push({ key, reason: "오더_선적 " + orows.length + "줄 ↔ MR_순수 " + mrList.length + "줄 (줄 수가 달라 짝지을 수 없음)" });
+      continue;
+    }
+    orows.sort((a, b) => a - b);
+    orows.forEach((orow, i) => plan.push({ key, orow, mr: mrList[i] }));
+  }
+
+  const rowsToPatch = new Map();
+  for (const p of plan) { if (!rowsToPatch.has(p.orow)) rowsToPatch.set(p.orow, []); rowsToPatch.get(p.orow).push(p); }
+  for (const [orow, ps] of rowsToPatch) {
+    const span = XP.getRowSpan(ofXml, orow);
+    if (!span) continue;
+    let text = span.text, rowChanged = false;
+    for (const p of ps) {
+      for (const mc of ofMonthCols) {
+        const mrCol = mrMonthCol.get(mc.ym);
+        if (mrCol == null) continue;
+        const k = mrCol - EE;
+        const ref = CU.colLetter(mc.col) + orow;
+        const desired = "MR_순수!" + CU.colLetter(mrCol) + p.mr.row;
+        const cur = gcell(ofGrid, orow, mc.col);
+        const val = k >= 0 && k < p.mr.monthly.length ? p.mr.monthly[k] : 0;
+        const cell = XP.findCell(text, ref);
+        if (!cell) { out.skipped.push({ key: p.key, reason: ref + " 셀이 없음" }); continue; }
+        if (cur && cur.hasF && (cur.f || "").replace(/\s/g, "") === desired) {
+          const r2 = setCachedInRow(text, ref, val);
+          if (r2.ok && r2.text !== text) { text = r2.text; rowChanged = true; out.refreshed++; } else out.ok++;
+          continue;
+        }
+        const raw = cell.match;
+        const shRef = /<f[^>]*t="shared"[^>]*\bref="([A-Z]+\d+)(?::([A-Z]+\d+))?"/.exec(raw);
+        if (shRef && shRef[2] && shRef[2] !== shRef[1]) { out.skipped.push({ key: p.key, reason: ref + " 은 여러 칸에 쓰이는 공유수식 원본이라 건드리지 않음" }); continue; }
+        const sm = cell.attrs.match(/\s+s="[^"]*"/);
+        const nc = '<c r="' + ref + '"' + (sm ? sm[0] : "") + "><f>" + desired + "</f><v>" + XP.formatNumberPublic(val) + "</v></c>";
+        text = text.slice(0, cell.index) + nc + text.slice(cell.index + cell.match.length);
+        rowChanged = true; out.repaired++;
+        out.repairedCells.push({ ref, was: cur ? (cur.kind === "error" ? cur.value : cur.hasF ? "다른 수식" : cur.kind === "number" ? "값 " + cur.value : "빈칸") : "없음", to: desired, key: p.key });
+      }
+    }
+    if (rowChanged) ofXml = ofXml.slice(0, span.index) + text + ofXml.slice(span.index + span.length);
+  }
+  if (out.repaired || out.refreshed) {
+    await masterZip.writeText(ofPath, ofXml);
+    // 사후 검증: 쓴 셀이 모두 의도한 수식인지 다시 읽어 확인
+    const g2 = parseGrid(ofXml, shared);
+    for (const p of plan) for (const mc of ofMonthCols) {
+      const mrCol = mrMonthCol.get(mc.ym);
+      if (mrCol == null) continue;
+      const c = gcell(g2, p.orow, mc.col);
+      const want = "MR_순수!" + CU.colLetter(mrCol) + p.mr.row;
+      if (c && !(c.hasF && (c.f || "").replace(/\s/g, "") === want)) {
+        const wasSkipped = out.skipped.some((s) => s.reason && s.reason.indexOf(CU.colLetter(mc.col) + p.orow) === 0);
+        if (!wasSkipped) out.verifyFailed++;
+      }
+    }
+  }
+  out.changed = out.repaired > 0 || out.refreshed > 0;
+  return out;
+}
+
+// 기준 CW 입력(BU1/AJ1)에서 엑셀이 계산할 값(BV1~BY1 / AK1~AN1)을 저장값에도 반영한다.
+async function refreshAnchorCaches(masterZip, psiAnchor, fhAnchor) {
+  const pad2 = (n) => (n < 10 ? "0" + n : String(n));
+  const done = [];
+  async function one(sheet, anchor, refs) {
+    if (!anchor) return;
+    const { path: p, xml } = await resolveSheetXml(masterZip, sheet);
+    const span = XP.getRowSpan(xml, 1);
+    if (!span) return;
+    let text = span.text, ch = false;
+    const vals = [anchor.week, anchor.year, anchor.monday, anchor.year + "-CW" + pad2(anchor.week)];
+    refs.forEach((ref, i) => {
+      const r = setCachedInRow(text, ref, vals[i]);
+      if (r.ok && r.text !== text) { text = r.text; ch = true; }
+    });
+    if (ch) {
+      await masterZip.writeText(p, xml.slice(0, span.index) + text + xml.slice(span.index + span.length));
+      done.push(sheet);
+    }
+  }
+  await one("PSI SAP RAW", psiAnchor, ["BV1", "BW1", "BX1", "BY1"]);
+  await one("Forecast Hankook", fhAnchor, ["AK1", "AL1", "AM1", "AN1"]);
+  return { refreshed: done };
+}
+
+// 재계산한 MR을 MR_순수의 저장값(주간 칸 + 월합계 + 27년 합계)에 반영한다. 수식은 그대로 둔다.
+async function writeMrCaches(masterZip, calc) {
+  const { path: mrPath, xml: mrOrig } = await resolveSheetXml(masterZip, "MR_순수");
+  let mrXml = mrOrig;
+  const EE = colNumFromLetters("EE");
+  let weekCells = 0, monthCells = 0;
+  for (const rw of calc.rows) {
+    const span = XP.getRowSpan(mrXml, rw.row);
+    if (!span) continue;
+    let text = span.text, ch = false;
+    if (rw.kind) {
+      for (let i = 0; i < calc.NW; i++) {
+        if (!rw.formulaMask[i]) continue;
+        const a = rw.stored[i], b = rw.weekly[i];
+        if ((a == null && b == null) || (a != null && b != null && Math.abs(a - b) < 1e-9)) continue;
+        const r = setCachedInRow(text, CU.colLetter(MR_WEEK_FIRST_COL + i) + rw.row, b == null ? "" : b);
+        if (r.ok) { text = r.text; ch = true; weekCells++; }
+      }
+    }
+    for (let m = 0; m < calc.NM; m++) {
+      if (rw.monthlyHand[m]) continue;
+      const a = rw.storedMonthly[m], b = rw.monthly[m];
+      if (a != null && Math.abs(a - b) < 1e-9) continue;
+      const r = setCachedInRow(text, CU.colLetter(EE + m) + rw.row, b);
+      if (r.ok) { text = r.text; ch = true; monthCells++; }
+    }
+    for (const k of ["EU", "EV", "EW"]) {
+      if (rw.tail[k] == null) continue;
+      const r = setCachedInRow(text, k + rw.row, rw.tail[k]);
+      if (r.ok) { text = r.text; ch = true; }
+    }
+    if (ch) mrXml = mrXml.slice(0, span.index) + text + mrXml.slice(span.index + span.length);
+  }
+  if (weekCells || monthCells) await masterZip.writeText(mrPath, mrXml);
+  return { weekCells, monthCells };
+}
+
+// 기준 주차를 앞으로 옮기면 그 사이 지난 주차의 MR이 수식에서 빈칸이 된다. 옮기기 전 기준으로 계산한 값(calcOld)을 값으로 고정해 둔다.
+async function freezePastWeeksV2(masterZip, calcOld, newAnchors) {
+  const out = { changed: false, sources: [] };
+  const { path: mrPath, xml: mrOrig } = await resolveSheetXml(masterZip, "MR_순수");
+  let mrXml = mrOrig;
+  const plans = [
+    { kind: "SAP", label: "PSI SAP", oldA: calcOld.anchors.psi, newA: newAnchors.psi },
+    { kind: "HK", label: "Forecast Hankook", oldA: calcOld.anchors.fh, newA: newAnchors.fh },
+  ];
+  for (const pl of plans) {
+    const info = { label: pl.label, status: "none", cells: 0, weeks: "" };
+    out.sources.push(info);
+    if (!pl.newA) continue;
+    if (!pl.oldA) { info.status = "skipped"; info.reason = "이전 기준 주차를 읽을 수 없음"; continue; }
+    if (pl.newA.monday <= pl.oldA.monday) continue; // 같은 주이거나 과거로 이동: 고정할 주차 없음
+    const first = Math.max(0, Math.round((pl.oldA.monday - calcOld.E1) / 7));
+    const last = Math.min(calcOld.NW - 1, Math.round((pl.newA.monday - calcOld.E1) / 7) - 1);
+    if (last < first) continue;
+    for (const rw of calcOld.rows) {
+      if (rw.kind !== pl.kind) continue;
+      const span = XP.getRowSpan(mrXml, rw.row);
+      if (!span) continue;
+      let text = span.text, ch = false;
+      for (let i = first; i <= last; i++) {
+        if (!rw.formulaMask[i]) continue;
+        const v = rw.weekly[i];
+        if (v == null) continue;
+        const ref = CU.colLetter(MR_WEEK_FIRST_COL + i) + rw.row;
+        const cell = XP.findCell(text, ref);
+        if (!cell) continue;
+        { const sr = /<f[^>]*t="shared"[^>]*\bref="([A-Z]+\d+)(?::([A-Z]+\d+))?"/.exec(cell.match); if (sr && sr[2] && sr[2] !== sr[1]) { info.skippedShared = (info.skippedShared || 0) + 1; continue; } }
+        text = XP.writeNumber(text, ref, v);
+        info.cells++; ch = true;
+      }
+      if (ch) mrXml = mrXml.slice(0, span.index) + text + mrXml.slice(span.index + span.length);
+    }
+    if (info.cells) {
+      info.status = "frozen"; out.changed = true;
+      const w1 = isoWeekNumOfSerial(calcOld.E1 + 7 * first), w2 = isoWeekNumOfSerial(calcOld.E1 + 7 * last);
+      info.weeks = w1 === w2 ? "CW" + w1 : "CW" + w1 + "~CW" + w2;
+    }
+  }
+  if (out.changed) await masterZip.writeText(mrPath, mrXml);
+  return out;
+}
+
+// calcChain(수식 계산 순서 목록)을 지운다. 수식을 값으로 바꾼 셀이 목록에 남아 있으면 엑셀이 "복구" 경고를 띄울 수 있고,
+// 엑셀이 열 때 다시 만든다.
+async function removeCalcChain(zip) {
+  if (typeof zip.removeFile !== "function") return { removed: false, reason: "이 환경에서는 파일 삭제를 지원하지 않음" };
+  const existing = await zip.readText("xl/calcChain.xml");
+  if (existing == null) return { removed: false, reason: "calcChain 없음" };
+  const ct = await zip.readText("[Content_Types].xml");
+  if (ct) await zip.writeText("[Content_Types].xml", ct.replace(/<Override[^>]*PartName="\/xl\/calcChain\.xml"[^>]*\/>/, ""));
+  const rels = await zip.readText("xl/_rels/workbook.xml.rels");
+  if (rels) await zip.writeText("xl/_rels/workbook.xml.rels", rels.replace(/<Relationship\b[^>]*calcChain[^>]*\/>/, ""));
+  await zip.removeFile("xl/calcChain.xml");
+  return { removed: true };
+}
+
+
+// ---- Forecast Hankook 수식 범위 확장 (AZ -> DP) ----
+// MR_순수의 FH 수식이 'Forecast Hankook'!$C:$AZ / $C$2:$AZ$2 로 고정돼 있어 2027 W19 이후 주차는
+// 데이터를 붙여넣어도 읽히지 않았다. 범위를 DP(120열)까지 넓힌다. (이미 넓혀져 있으면 아무 것도 안 함)
+const FH_WIDE_COL = "DP";
+async function widenFhRange(masterZip) {
+  const { path: mrPath, xml: mrXml } = await resolveSheetXml(masterZip, "MR_순수");
+  const swap = (t) =>
+    t
+      .split("'Forecast Hankook'!$C:$AZ").join("'Forecast Hankook'!$C:$" + FH_WIDE_COL)
+      .split("'Forecast Hankook'!$C$2:$AZ$2").join("'Forecast Hankook'!$C$2:$" + FH_WIDE_COL + "$2")
+      .split("&apos;Forecast Hankook&apos;!$C:$AZ").join("&apos;Forecast Hankook&apos;!$C:$" + FH_WIDE_COL)
+      .split("&apos;Forecast Hankook&apos;!$C$2:$AZ$2").join("&apos;Forecast Hankook&apos;!$C$2:$" + FH_WIDE_COL + "$2");
+  let changed = false;
+  const mrNew = swap(mrXml);
+  if (mrNew !== mrXml) { await masterZip.writeText(mrPath, mrNew); changed = true; }
+  const wb = await masterZip.readText("xl/workbook.xml");
+  if (wb) {
+    const wbNew = wb
+      .split("'Forecast Hankook'!$A$2:$AZ$100").join("'Forecast Hankook'!$A$2:$" + FH_WIDE_COL + "$100")
+      .split("&apos;Forecast Hankook&apos;!$A$2:$AZ$100").join("&apos;Forecast Hankook&apos;!$A$2:$" + FH_WIDE_COL + "$100");
+    if (wbNew !== wb) { await masterZip.writeText("xl/workbook.xml", wbNew); changed = true; }
+  }
+  return { changed };
+}
+
 // ---- Stock Status pipeline ----
-// Discriminators validated against real files; see project notes. Reads
-// 마스터/MR_순수/오더_선적 from masterZip (read-only) and writes only into
+// Reads 마스터/MR_순수/오더_선적 from masterZip (read-only) and writes only into
 // Stock Status_Europe's own Y..AP / AR,AS,AT,AY,BE,BF cells for rows whose
 // Q column (PIC) matches picName.
 
@@ -639,195 +1656,621 @@ const CORP_MAP = { NL: "Netherland", ES: "Spain", JP: "OE Sales Team 2", HQ: "OE
 const OF_DATA_ROW_START = 7;
 const OF_DATA_ROW_END = 35; // second, unrelated header block starts at row 40 -- must stay excluded
 
-async function runStockStatusPipeline(masterZip, stockZip, picName) {
+// 오더_선적의 재고 열(ATP / AT DOCK / On Water / CY / Factory / W0 / W+1)을
+// 5~6행 헤더 텍스트로 찾는다. 예전에는 열 문자를 고정(AO,AP,AQ,AR,AT,AU)해 두었는데,
+// 마스터에 열이 삽입되면서 그 자리가 MR 월합계(27.Apr~27.Oct)로 바뀌어 있었다.
+function resolveOfStockCols(ofXml, shared) {
+  const want = {
+    ATP: [5, "ATP"],
+    AtDock: [6, "AT DOCK"],
+    OnWater: [6, "On Water"],
+    CY: [6, "CY"],
+    Factory: [6, "Factory"],
+    W0: [5, "W0"],
+    W1: [5, "W+1"],
+  };
+  const out = {};
+  const missing = [];
+  for (const key of Object.keys(want)) {
+    const row = want[key][0],
+      text = want[key][1];
+    const span = XP.getRowSpan(ofXml, row);
+    let found = null;
+    if (span) {
+      const cellRe = /<c r="([A-Z]+)\d+"[^>]*?(?:\/>|>[\s\S]*?<\/c>)/g;
+      let m;
+      while ((m = cellRe.exec(span.text))) {
+        const c = XP.readCell(span.text, m[1] + row, shared);
+        if (c.kind === "string" && String(c.value).trim() === text) {
+          found = m[1];
+          break;
+        }
+      }
+    }
+    if (found) out[key] = found;
+    else missing.push(text + "(" + row + "행)");
+  }
+  if (missing.length) {
+    throw new Error("오더_선적 시트에서 다음 헤더를 찾지 못했습니다 (시트 구조가 바뀐 것 같습니다): " + missing.join(", "));
+  }
+  return out;
+}
+
+// 헤더 텍스트 정규화 (공백·줄바꿈·대소문자 무시)
+function normHeader(s) {
+  return String(s == null ? "" : s).replace(/\s+/g, " ").trim().toLowerCase();
+}
+
+// 주간재고 파일 5행(헤더)에서 쓸 열을 이름으로 찾는다.
+// IN WH / At dock / On water / EPC 는 5행 헤더 이름, Production Plan 은 같은 이름이 여러 칸이라
+// 4행의 주차 번호가 기준 주(W0) / 다음 주(W+1)인 칸으로 구분한다.
+function resolveStockStatusCols(stockGrid, baseMondaySerial) {
+  const hdr = stockGrid.get(5) || new Map();
+  const found = {}; // name -> [col]
+  for (const [c, x] of hdr) {
+    if (x.kind !== "string") continue;
+    const n = normHeader(x.value);
+    if (!found[n]) found[n] = [];
+    found[n].push(c);
+  }
+  const need = { inWH: "in wh", atDock: "at dock", onWater: "on water", epc: "epc" };
+  const out = {};
+  const problems = [];
+  for (const [k, n] of Object.entries(need)) {
+    const cols = found[n] || [];
+    if (cols.length === 1) out[k] = cols[0];
+    else if (cols.length === 0) problems.push("'" + n.toUpperCase() + "' 헤더 없음(5행)");
+    else problems.push("'" + n.toUpperCase() + "' 헤더가 " + cols.length + "곳에 있음(" + cols.map((c) => CU.colLetter(c)).join(",") + ")");
+  }
+  const w0 = isoWeekNumOfSerial(baseMondaySerial);
+  const w1 = isoWeekNumOfSerial(baseMondaySerial + 7);
+  const pp = found["production plan"] || [];
+  const row4 = stockGrid.get(4) || new Map();
+  const pickWeek = (wk) => {
+    const cands = pp.filter((c) => {
+      const x = row4.get(c);
+      return x && x.kind === "number" && Math.round(x.value) === wk;
+    });
+    return cands;
+  };
+  const c0 = pickWeek(w0), c1 = pickWeek(w1);
+  if (c0.length === 1) out.w0 = c0[0];
+  else problems.push("Production Plan 열(4행 주차 " + w0 + ") " + (c0.length ? "중복" : "없음"));
+  if (c1.length === 1) out.w1 = c1[0];
+  else problems.push("Production Plan 열(4행 주차 " + w1 + ") " + (c1.length ? "중복" : "없음"));
+  if (problems.length) throw new Error("주간재고 파일의 열을 찾지 못했습니다: " + problems.join("; ") + ". 파일 구조가 바뀌었는지 확인해주세요.");
+  out.w0Week = w0;
+  out.w1Week = w1;
+  return out;
+}
+
+async function runStockStatusPipeline(masterZip, stockZip, picName, opts) {
+  opts = opts || {};
+  const calc = opts.calc;
+  if (!calc) throw new Error("내부 오류: MR 재계산 결과가 필요합니다.");
   const masterShared = await resolveSharedStrings(masterZip);
-  const { xml: masterXml } = await resolveSheetXml(masterZip, "마스터");
-  const { xml: mrXml } = await resolveSheetXml(masterZip, "MR_순수");
   const { xml: ofXml } = await resolveSheetXml(masterZip, "오더_선적");
+  const ofGrid = parseGrid(ofXml, masterShared);
+  const ofCols = resolveOfStockCols(ofXml, masterShared);
+  // TTL 열(5행 'TTL')은 자체 검산용 (없어도 계속)
+  let ttlCol = null;
+  for (const [c, x] of ofGrid.get(5) || new Map()) if (x.kind === "string" && normHeader(x.value) === "ttl") ttlCol = c;
 
-  const mCellText = (xml, ref) => {
-    const c = XP.readCell(xml, ref, masterShared);
-    return c.kind === "missing" || c.kind === "empty" ? null : c.value;
+  // 1) 오더_선적 (법인, M-Code) -> 행 목록
+  const ofRows = new Map(), ofByMcode = new Map();
+  const ofEnd = ofDataEndRow(ofGrid);
+  for (let r = OF_DATA_ROW_START; r <= ofEnd; r++) {
+    const corp = gstr(ofGrid, r, 2);
+    const m = cellKeyNum(gcell(ofGrid, r, 14)); // N = M-Code
+    if (!corp || m == null) continue;
+    const key = corp + "|" + Math.round(m);
+    if (!ofRows.has(key)) ofRows.set(key, []);
+    ofRows.get(key).push(r);
+    if (!ofByMcode.has(Math.round(m))) ofByMcode.set(Math.round(m), []);
+    ofByMcode.get(Math.round(m)).push(r);
+  }
+  const stockColNums = { ATP: colNumFromLetters(ofCols.ATP), AtDock: colNumFromLetters(ofCols.AtDock), OnWater: colNumFromLetters(ofCols.OnWater), CY: colNumFromLetters(ofCols.CY), Factory: colNumFromLetters(ofCols.Factory), W0: colNumFromLetters(ofCols.W0), W1: colNumFromLetters(ofCols.W1) };
+  const hasStockData = (r) => Object.values(stockColNums).some((c) => { const x = gcell(ofGrid, r, c); return x && (x.hasF || x.kind === "number"); });
+  const pickOfRow = (rows) => {
+    if (!rows || !rows.length) return undefined;
+    if (rows.length === 1) return rows[0];
+    const withData = rows.filter(hasStockData);
+    return withData.length ? withData[0] : rows[0];
   };
-  // Returns { value: number, error: false } for a real number, or
-  // { value: null, error: <bool> } when there is nothing usable --
-  // `error: true` specifically means the source cell holds a stale/
-  // unrecalculated formula error (#VALUE!, #REF!, #N/A, ...), which
-  // happens when the master workbook hasn't been reopened in Excel since
-  // its upstream billing data changed. This is never silently treated as
-  // 0 -- callers must decide (write nothing + flag it) rather than have
-  // parseFloat() turn "#VALUE!" into NaN, which would corrupt the cell.
-  const mCellNum = (xml, ref) => {
-    const c = XP.readCell(xml, ref, masterShared);
-    if (c.kind === "missing" || c.kind === "empty") return { value: null, error: false };
-    if (c.kind === "error") return { value: null, error: true };
-    const n = typeof c.value === "number" ? c.value : parseFloat(c.value);
-    return Number.isFinite(n) ? { value: n, error: false } : { value: null, error: true };
-  };
 
-  // 1) 마스터 (법인, M-Code) -> row  (MR_순수 row = 마스터 row, 1:1)
-  const masterRowNums = [...masterXml.matchAll(/<row r="(\d+)"/g)].map((m) => parseInt(m[1], 10));
-  const masterMaxRow = masterRowNums.length ? Math.max(...masterRowNums) : 5;
-  const masterLookup = new Map();
-  for (let r = 5; r <= Math.max(masterMaxRow, 5); r++) {
-    const corp = mCellText(masterXml, "B" + r);
-    const mcodeRaw = mCellNum(masterXml, "X" + r).value;
-    if (corp && mcodeRaw) {
-      const key = corp + "|" + Math.round(mcodeRaw);
-      if (!masterLookup.has(key)) masterLookup.set(key, r);
-    }
-  }
-
-  // 2) MR_순수 date anchor (E1) -> week column arithmetic
-  const E1 = mCellNum(mrXml, "E1").value;
-  const K1COL = 11;
-  function mrColForDate(serial) {
-    if (E1 == null || serial == null) return null;
-    const deltaDays = serial - E1;
-    if (deltaDays % 7 !== 0) return null;
-    return K1COL + deltaDays / 7;
-  }
-
-  // 3) 오더_선적 (법인, M-Code) -> row, + M-Code-only fallback when the 법인
-  //    label disagrees but the M-Code is otherwise unique in the sheet
-  const ofLookup = new Map();
-  const ofByMcode = new Map();
-  for (let r = OF_DATA_ROW_START; r <= OF_DATA_ROW_END; r++) {
-    const corp = mCellText(ofXml, "B" + r);
-    const mcodeRaw = mCellNum(ofXml, "N" + r).value;
-    if (corp && mcodeRaw) {
-      const mcode = Math.round(mcodeRaw);
-      const key = corp + "|" + mcode;
-      if (!ofLookup.has(key)) ofLookup.set(key, r);
-      if (!ofByMcode.has(mcode)) ofByMcode.set(mcode, []);
-      ofByMcode.get(mcode).push(r);
-    }
-  }
-
-  // 4) Stock Status_Europe
+  // 2) 주간재고 파일
   const { path: stockPath, xml: stockXmlOrig } = await resolveSheetXml(stockZip, "Stock Status_Europe");
   let stockXml = stockXmlOrig;
   const stockShared = await resolveSharedStrings(stockZip);
-  const sCellText = (xml, ref) => {
-    const c = XP.readCell(xml, ref, stockShared);
-    return c.kind === "missing" || c.kind === "empty" ? null : c.value;
-  };
-  // Same error-safe contract as mCellNum above.
-  const sCellNum = (xml, ref) => {
-    const c = XP.readCell(xml, ref, stockShared);
-    if (c.kind === "missing" || c.kind === "empty") return { value: null, error: false };
-    if (c.kind === "error") return { value: null, error: true };
-    const n = typeof c.value === "number" ? c.value : parseFloat(c.value);
-    return Number.isFinite(n) ? { value: n, error: false } : { value: null, error: true };
-  };
-
-  const Y_COL = 25,
-    AP_COL = 42;
+  const sGrid = parseGrid(stockXml, stockShared);
   const weekCols = [];
-  for (let c = Y_COL; c <= AP_COL; c++) weekCols.push(c);
+  for (let c = 25; c <= 42; c++) weekCols.push(c); // Y..AP
+  const aq = gcell(sGrid, 5, 43);
+  if (!aq || aq.kind !== "string" || normHeader(aq.value) !== "total") throw new Error("주간재고 파일 구조 확인 실패: AQ5 가 'Total' 이 아닙니다 (Y~AP 주차 열 위치가 바뀐 것 같습니다).");
   const weekDates = {};
-  for (const c of weekCols) weekDates[c] = sCellNum(stockXml, CU.colLetter(c) + "5").value;
+  for (const c of weekCols) weekDates[c] = gnum(sGrid, 5, c);
+  const baseMonday = weekDates[25];
+  if (baseMonday == null) throw new Error("주간재고 파일 Y5(첫 주 날짜)를 읽을 수 없습니다.");
+  const cols = resolveStockStatusCols(sGrid, baseMonday);
 
-  const AR_C = 44,
-    AS_C = 45,
-    AT_C = 46,
-    AY_C = 51,
-    BE_C = 57,
-    BF_C = 58;
-  const OF_MAP = [
-    [AR_C, "AO"],
-    [AS_C, "AP"],
-    [AT_C, "AQ"],
-    [AY_C, "AR"],
-    [BE_C, "AT"],
-    [BF_C, "AU"],
-  ];
+  const weekIdx = (serial) => {
+    if (serial == null) return null;
+    const d = serial - calc.E1;
+    if (d % 7 !== 0) return null;
+    const i = d / 7;
+    return i >= 0 && i < calc.NW ? i : null;
+  };
 
-  const stockRowNums = [...stockXml.matchAll(/<row r="(\d+)"/g)].map((m) => parseInt(m[1], 10));
-  const maxRow = stockRowNums.length ? Math.max(...stockRowNums) : 5;
-
-  let filled = 0,
-    skippedManual = 0,
-    missingBoth = 0;
-  const report = [];
+  const L = (c) => CU.colLetter(c);
+  let filled = 0, skippedManual = 0, missingBoth = 0;
+  const report = [], ttlWarnings = [], writeErrors = [], noMaster = [];
+  const rowsByKey = new Map(); // 같은 (법인,M-Code) 줄이 여러 개인 경우 (두 줄 모두 채우고, 정리할 목록으로 알려줌)
+  const maxRow = Math.max(...[...sGrid.keys()]);
 
   for (let r = 6; r <= maxRow; r++) {
-    const pic = sCellText(stockXml, "Q" + r);
-    if (pic !== picName) continue;
-    const kcodeRaw = sCellNum(stockXml, "K" + r).value;
-    const ucode = sCellText(stockXml, "U" + r);
-    if (kcodeRaw == null || ucode == null) continue;
-    const mcode = Math.round(kcodeRaw);
-    const corp = CORP_MAP[ucode];
-
-    if (corp === "OE Sales Team 2") {
-      skippedManual++;
-      report.push({ row: r, mcode, ucode, status: "manual" });
-      continue;
-    }
+    if (gstr(sGrid, r, 17) !== picName) continue; // Q = PIC
+    const mcodeRaw = cellKeyNum(gcell(sGrid, r, 11)); // K
+    const ucode = gstr(sGrid, r, 21); // U
+    if (mcodeRaw == null || ucode == null) continue;
+    const mcode = Math.round(mcodeRaw);
+    const corp = CORP_MAP[ucode.trim()];
+    const key = (corp || ucode) + "|" + mcode;
+    if (!rowsByKey.has(key)) rowsByKey.set(key, []);
+    rowsByKey.get(key).push(r);
 
     const edits = [];
-    const sourceErrors = []; // column letters (dest, in this row) whose source cell was a stale formula error
-    const mrow = corp ? masterLookup.get(corp + "|" + mcode) : undefined;
-    if (mrow !== undefined) {
+    const sourceErrors = [];
+    // MR: 재계산 결과에서 (법인, M-Code)로 찾는다 (행 위치로 찾지 않음)
+    const mrRow = corp ? pickDataRow(calc.byKey.get(corp + "|" + mcode)) : null;
+    if (mrRow) {
       for (const c of weekCols) {
-        const mc = mrColForDate(weekDates[c]);
-        if (mc == null) continue;
-        const res = mCellNum(mrXml, CU.colLetter(mc) + mrow);
-        if (res.error) {
-          sourceErrors.push(CU.colLetter(c));
-          continue; // leave this one cell untouched rather than write 0 or corrupt it
-        }
-        edits.push({ ref: CU.colLetter(c) + r, kind: "number", value: res.value == null ? 0 : res.value });
+        const i = weekIdx(weekDates[c]);
+        if (i == null) continue;
+        const v = mrRow.weekly[i];
+        edits.push({ ref: L(c) + r, kind: "number", value: v == null ? 0 : v });
       }
     }
-
-    let orow = corp ? ofLookup.get(corp + "|" + mcode) : undefined;
-    if (orow === undefined) {
-      const cands = ofByMcode.get(mcode) || [];
+    // 재고: 오더_선적 (법인, M-Code) 행
+    let orow = corp ? pickOfRow(ofRows.get(corp + "|" + mcode)) : undefined;
+    // M-Code만으로 찾는 보조 매칭은 NL/ES 줄에만 쓴다. JP/HQ(OE Sales Team 2) 줄은 같은 M-Code의 스페인 행을 가져오면 안 되므로 제외.
+    if (orow === undefined && corp && corp !== "OE Sales Team 2") {
+      const cands = (ofByMcode.get(mcode) || []).filter((rr) => gstr(ofGrid, rr, 2) !== "OE Sales Team 2");
       if (cands.length === 1) orow = cands[0];
     }
     if (orow !== undefined) {
-      for (const [dstC, srcRef] of OF_MAP) {
-        const res = mCellNum(ofXml, srcRef + orow);
-        if (res.error) {
-          sourceErrors.push(CU.colLetter(dstC));
-          continue;
+      const val = (c) => {
+        const x = gcell(ofGrid, orow, c);
+        if (!x) return { v: 0 };
+        if (x.kind === "error") return { err: true };
+        if (x.kind === "number") return { v: x.value };
+        if (x.kind === "string" && asNum(x.value) != null) return { v: asNum(x.value) };
+        return { v: 0 };
+      };
+      const g = {};
+      for (const k of Object.keys(stockColNums)) g[k] = val(stockColNums[k]);
+      const MAP = [
+        [cols.inWH, ["ATP"]],
+        [cols.atDock, ["AtDock"]],
+        [cols.onWater, ["OnWater"]],
+        [cols.epc, ["CY", "Factory"]],
+        [cols.w0, ["W0"]],
+        [cols.w1, ["W1"]],
+      ];
+      for (const [dst, srcs] of MAP) {
+        let sum = 0, err = false;
+        for (const s of srcs) { if (g[s].err) err = true; else sum += g[s].v; }
+        if (err) { sourceErrors.push(L(dst)); continue; }
+        edits.push({ ref: L(dst) + r, kind: "number", value: sum });
+      }
+      // TTL 검산: ATP + AT DOCK + On Water + CY + Factory = TTL
+      if (ttlCol && !["ATP", "AtDock", "OnWater", "CY", "Factory"].some((k) => g[k].err)) {
+        const t = gcell(ofGrid, orow, ttlCol);
+        if (t && t.kind === "number") {
+          const s5 = g.ATP.v + g.AtDock.v + g.OnWater.v + g.CY.v + g.Factory.v;
+          if (Math.abs(s5 - t.value) > 0.5) ttlWarnings.push({ row: r, mcode, ucode, sum: s5, ttl: t.value });
         }
-        edits.push({ ref: CU.colLetter(dstC) + r, kind: "number", value: res.value == null ? 0 : res.value });
       }
     }
 
-    filled++;
     let status = "filled";
-    if (mrow === undefined && orow === undefined) {
-      missingBoth++;
-      status = "missing";
-    }
+    if (!corp) status = "manual";
+    else if (!mrRow && orow === undefined) { status = "missing"; if (ucode.trim() === "HQ" || corp === "OE Sales Team 2") noMaster.push({ row: r, mcode, ucode }); }
+    if (status === "filled") filled++;
+    else if (status === "manual") skippedManual++;
+    else missingBoth++;
     if (sourceErrors.length) status = "source_error";
-    report.push({
-      row: r,
-      mcode,
-      ucode,
-      status,
-      mrMatched: mrow !== undefined,
-      ofMatched: orow !== undefined,
-      sourceErrors, // non-empty => some columns intentionally left untouched because the master's cached formula value was an error (#VALUE! etc.) -- master needs to be reopened/saved in real Excel to recalculate before those specific cells can be filled
-    });
+    report.push({ row: r, mcode, ucode, status, mrMatched: !!mrRow, ofMatched: orow !== undefined, sourceErrors });
 
-    if (edits.length) stockXml = XP.applyRowEdits(stockXml, r, edits);
+    if (edits.length) {
+      try {
+        stockXml = XP.applyRowEdits(stockXml, r, edits);
+      } catch (e) {
+        // 일부 셀이 없는 경우: 셀 단위로 시도하고 못 쓴 셀을 기록
+        for (const ed of edits) {
+          try { stockXml = XP.applyRowEdits(stockXml, r, [ed]); } catch (e2) { writeErrors.push({ row: r, ref: ed.ref }); }
+        }
+      }
+    }
   }
 
   await stockZip.writeText(stockPath, stockXml);
 
-  return { stats: { filled, skippedManual, missingBoth }, report };
+  const dupLines = [];
+  for (const [key, rws] of rowsByKey) if (rws.length > 1) {
+    const [c, m] = key.split("|");
+    // 법인이 다른 줄(JP/ES 등)은 중복이 아니므로 key에 법인이 포함돼 있어 자연스럽게 제외됨
+    dupLines.push({ key, corp: c, mcode: m, rows: rws });
+  }
+  return { stats: { filled, skippedManual, missingBoth }, report, ofCols, stockCols: cols, dupLines, ttlWarnings, writeErrors, noMaster };
 }
 
-// ---- CW20 alarm check ----
-// For every M-Code row in 마스터/MR_순수 (not just the current PIC's rows),
-// checks whether the next N weekly MR columns starting at the anchor week
-// (E1, i.e. "this week") are all populated. Flags any row with a gap.
-async function checkMrCoverage(masterZip, weeksAhead) {
+// ---- MR 재계산 엔진 (엑셀 수식과 같은 계산을 대시보드 안에서 독립적으로 수행) ----
+// 원본 시트(Forecast Hankook / PSI SAP RAW / PSI Raw_ES)와 월 배분표에서 규격별 주간 MR과 월 합계를 다시 계산한다.
+// 목적: (1) 주간재고 파일의 MR을 오래된 저장값이 아니라 현재 입력 기준으로 채우기
+//       (2) MR_순수 / 오더_선적 저장값과 비교해 어긋난 곳 찾기 (3) 스냅샷 저장.
+
+// 시트 XML 전체를 한 번에 읽어 Map(행 -> Map(열번호 -> 셀)) 로 만든다. (행 단위 정규식 반복보다 훨씬 빠름)
+function parseGrid(xml, shared) {
+  const grid = new Map();
+  const sharedF = new Map();
+  const rowRe = /<row r="(\d+)"[^>]*?(?:\/>|>([\s\S]*?)<\/row>)/g;
+  let rm;
+  while ((rm = rowRe.exec(xml))) {
+    const rn = parseInt(rm[1], 10);
+    const body = rm[2] || "";
+    const cols = new Map();
+    const cellRe = /<c r="([A-Z]+)\d+"([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g;
+    let cm;
+    while ((cm = cellRe.exec(body))) {
+      const col = colNumFromLetters(cm[1]);
+      const attrs = cm[2] || "";
+      const inner = cm[3] || "";
+      const t = (attrs.match(/\st="([^"]*)"/) || [])[1] || null;
+      const v = (inner.match(/<v>([\s\S]*?)<\/v>/) || [])[1];
+      const hasF = /<f[\s>\/]/.test(inner);
+      let cell;
+      if (t === "s") cell = v == null ? { kind: "empty" } : { kind: "string", value: shared[parseInt(v, 10)] != null ? shared[parseInt(v, 10)] : "" };
+      else if (t === "inlineStr") {
+        const tt = inner.match(/<t[^>]*>([\s\S]*?)<\/t>/);
+        cell = { kind: "string", value: tt ? XP.decodeXmlEntities(tt[1]) : "" };
+      } else if (t === "str") cell = { kind: "string", value: v == null ? "" : XP.decodeXmlEntities(v) };
+      else if (t === "e") cell = { kind: "error", value: v || "#N/A" };
+      else if (t === "b") cell = { kind: "bool", value: v === "1" };
+      else if (v == null || v === "") cell = { kind: "empty" };
+      else cell = { kind: "number", value: parseFloat(v) };
+      if (hasF) {
+        cell.hasF = true;
+        const fm = inner.match(/<f([^>]*?)(?:\/>|>([\s\S]*?)<\/f>)/);
+        const fattrs = fm ? fm[1] : "";
+        const ftext = fm && fm[2] ? XP.decodeXmlEntities(fm[2]) : "";
+        const si = (fattrs.match(/\bsi="(\d+)"/) || [])[1];
+        if (/t="shared"/.test(fattrs) && si != null) {
+          if (ftext) sharedF.set(si, ftext);
+          cell.f = ftext || sharedF.get(si) || "";
+          cell.sharedChild = !ftext;
+        } else cell.f = ftext;
+      }
+      cols.set(col, cell);
+    }
+    grid.set(rn, cols);
+  }
+  return grid;
+}
+function gnum(grid, r, c) {
+  const x = grid.get(r) && grid.get(r).get(c);
+  return x && x.kind === "number" ? x.value : null;
+}
+function gstr(grid, r, c) {
+  const x = grid.get(r) && grid.get(r).get(c);
+  if (!x) return null;
+  if (x.kind === "string") return x.value;
+  if (x.kind === "number") return String(x.value);
+  return null;
+}
+function gcell(grid, r, c) {
+  return grid.get(r) && grid.get(r).get(c) ? grid.get(r).get(c) : null;
+}
+// 숫자 같은 문자열도 숫자로 (SUMIFS 조건 일치 방식)
+function asNum(x) {
+  if (x == null) return null;
+  if (typeof x === "number") return x;
+  const s = String(x).trim();
+  if (s === "") return null;
+  const n = Number(s);
+  return Number.isFinite(n) ? n : null;
+}
+function cellKeyNum(cell) {
+  if (!cell) return null;
+  if (cell.kind === "number") return cell.value;
+  if (cell.kind === "string") return asNum(cell.value);
+  return null;
+}
+// ISO 주차 (WEEKNUM(날짜,21))
+function isoWeekNumOfSerial(serial) {
+  const d = XP.excelSerialToUTCDate(serial);
+  const t = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+  const day = t.getUTCDay() || 7;
+  t.setUTCDate(t.getUTCDate() + 4 - day);
+  const y0 = new Date(Date.UTC(t.getUTCFullYear(), 0, 1));
+  return Math.ceil(((t - y0) / 86400000 + 1) / 7);
+}
+function yearOfSerial(serial) {
+  return XP.excelSerialToUTCDate(serial).getUTCFullYear();
+}
+// 기준 CW 입력(예: "2026-CW42" / 42 / "42")에서 엑셀이 계산할 월요일(일련번호)과 연도, 주차를 구한다.
+function anchorFromInput(cell, fallbackYearSerial) {
+  if (!cell) return null;
+  let wk = null, yr = null;
+  if (cell.kind === "number") wk = Math.round(cell.value);
+  else if (cell.kind === "string") {
+    const m = /(\d{4})\s*-?\s*CW\s*(\d+)/i.exec(cell.value);
+    if (m) { yr = parseInt(m[1], 10); wk = parseInt(m[2], 10); }
+    else {
+      const m2 = /CW\s*(\d+)/i.exec(cell.value) || /^\s*(\d+)\s*$/.exec(cell.value);
+      if (m2) wk = parseInt(m2[1], 10);
+    }
+  }
+  if (wk == null) return null;
+  if (yr == null) yr = fallbackYearSerial != null ? yearOfSerial(fallbackYearSerial) : new Date().getUTCFullYear();
+  // DATE(yr,1,4) - WEEKDAY(DATE(yr,1,4),2) + 1 + (wk-1)*7
+  const jan4 = XP.utcDateToExcelSerial(new Date(Date.UTC(yr, 0, 4)));
+  const wd = ((XP.excelSerialToUTCDate(jan4).getUTCDay() + 6) % 7) + 1; // 월=1..일=7
+  const monday = jan4 - wd + 1 + (wk - 1) * 7;
+  return { week: wk, year: yr, monday };
+}
+
+/**
+ * MR 재계산.
+ * opts.psiAnchor / opts.fhAnchor : { week, year, monday } (없으면 마스터의 BU1 / AJ1 입력에서 읽음)
+ * 반환: { rows: [...], byKey: Map, weeks: [{idx, monday}], weights, anchors, issues }
+ */
+async function computeMr(masterZip, opts) {
+  opts = opts || {};
+  const shared = await resolveSharedStrings(masterZip);
+  const grids = {};
+  async function grid(name) {
+    if (!grids[name]) {
+      const { xml } = await resolveSheetXml(masterZip, name);
+      grids[name] = parseGrid(xml, shared);
+    }
+    return grids[name];
+  }
+  const mr = await grid("MR_순수");
+  const fh = await grid("Forecast Hankook");
+  const sap = await grid("PSI SAP RAW");
+  const es = await grid("PSI Raw_ES");
+  const wt = await grid("월 배분표");
+  const issues = [];
+
+  const E1 = gnum(mr, 1, 5);
+  if (E1 == null) throw new Error("MR_순수 E1(롤링 시작일)을 읽을 수 없습니다.");
+  const NW = MR_WEEK_LAST_COL - MR_WEEK_FIRST_COL + 1; // 123
+
+  // 기준 주차: 새로 쓰는 값(opts) 우선, 없으면 마스터 입력칸(BU1 / AJ1)에서 엑셀이 계산할 값
+  const psiAnchor = opts.psiAnchor || anchorFromInput(gcell(sap, 1, colNumFromLetters("BU")), E1);
+  const fhAnchor = opts.fhAnchor || anchorFromInput(gcell(fh, 1, colNumFromLetters("AJ")), E1);
+  if (!psiAnchor) issues.push("PSI SAP RAW 기준 CW(BU1)를 읽을 수 없어 SAP 행은 계산하지 않았습니다.");
+  if (!fhAnchor) issues.push("Forecast Hankook 기준 CW(AJ1)를 읽을 수 없어 HK 행은 계산하지 않았습니다.");
+
+  // --- Forecast Hankook 헤더(2행)와 데이터(3행~)
+  const FH_LAST = FH_HEADER_HARD_CEIL_COL;
+  const fhHeaders = []; // {col, kind:'num'|'txt', v}
+  for (let c = 3; c <= FH_LAST; c++) {
+    const x = gcell(fh, 2, c);
+    if (!x) continue;
+    if (x.kind === "number") fhHeaders.push({ col: c, num: x.value, txt: String(x.value) });
+    else if (x.kind === "string" && x.value.trim() !== "") {
+      const t = x.value.trim();
+      fhHeaders.push({ col: c, num: /^\d+$/.test(t) ? parseInt(t, 10) : null, txt: t.toLowerCase() });
+    }
+  }
+  function fhMatchCol(wkNum, yr, sameYear) {
+    if (sameYear) {
+      for (const h of fhHeaders) if (h.num === wkNum) return h.col; // 숫자 헤더 우선
+    }
+    const want = (yr + " " + wkNum).toLowerCase();
+    for (const h of fhHeaders) if (h.txt === want) return h.col;
+    return null;
+  }
+  const fhByM = new Map(); // mcode -> [rowNum]
+  for (const [rn, cols] of fh) {
+    if (rn < 3) continue;
+    const k = cellKeyNum(cols.get(2));
+    if (k == null) continue;
+    if (!fhByM.has(k)) fhByM.set(k, []);
+    fhByM.get(k).push(rn);
+  }
+  // --- PSI SAP RAW 헤더(1행)
+  const sapCols = new Map(); // "mr 3w" -> col
+  const sapRow1 = sap.get(1) || new Map();
+  for (const [c, x] of sapRow1) if (x.kind === "string") sapCols.set(x.value.trim().toLowerCase(), c);
+  const sapByKey = new Map(); // mcode|plant -> [row]
+  for (const [rn, cols] of sap) {
+    if (rn < 2) continue;
+    const k = cellKeyNum(cols.get(2));
+    const p = gstr(sap, rn, 3);
+    if (k == null || p == null) continue;
+    const key = k + "|" + p.trim().toLowerCase();
+    if (!sapByKey.has(key)) sapByKey.set(key, []);
+    sapByKey.get(key).push(rn);
+  }
+  // --- PSI Raw_ES : mcode -> [{d, q}]
+  const esByM = new Map();
+  let esMin = null, esMax = null;
+  for (const [rn, cols] of es) {
+    if (rn < 2) continue;
+    const k = cellKeyNum(cols.get(1));
+    const d = cols.get(4) && cols.get(4).kind === "number" ? cols.get(4).value : null;
+    const q = cols.get(5) && cols.get(5).kind === "number" ? cols.get(5).value : 0;
+    if (k == null || d == null) continue;
+    if (!esByM.has(k)) esByM.set(k, []);
+    esByM.get(k).push({ d, q });
+    if (esMin == null || d < esMin) esMin = d;
+    if (esMax == null || d > esMax) esMax = d;
+  }
+
+  // --- 월 배분표 가중치 (행 10..25 = 16개월, 열 H..DZ = 주차 123칸)
+  const WT_FIRST_COL = colNumFromLetters("H"), WT_ROW0 = 10, NM = 16;
+  const weights = [];
+  for (let m = 0; m < NM; m++) {
+    const arr = new Array(NW).fill(0);
+    for (let i = 0; i < NW; i++) {
+      const v = gnum(wt, WT_ROW0 + m, WT_FIRST_COL + i);
+      arr[i] = v == null ? 0 : v;
+    }
+    weights.push(arr);
+  }
+
+  const weeks = [];
+  for (let i = 0; i < NW; i++) weeks.push({ idx: i, monday: E1 + 7 * i });
+  const hkYear = fhAnchor ? fhAnchor.year : null; // 조회일_HK(=AM1)의 연도
+
+  const rows = [];
+  const MCOL = 10, BCOL = 2, ECOL = 5;
+  for (let r = 5; r <= 54; r++) {
+    const cols = mr.get(r);
+    if (!cols) continue;
+    const corp = gstr(mr, r, BCOL);
+    const mcode = cellKeyNum(cols.get(MCOL));
+    const plant = gstr(mr, r, ECOL);
+    if (mcode == null && !corp) continue;
+    // 종류 판별: 주간 열의 수식에서 소스 표시를 찾는다
+    let kind = null;
+    for (let c = MR_WEEK_FIRST_COL; c <= MR_WEEK_LAST_COL; c++) {
+      const x = cols.get(c);
+      if (x && x.hasF && x.f) {
+        if (x.f.indexOf("Forecast Hankook") >= 0) kind = "HK";
+        else if (x.f.indexOf("PSI SAP RAW") >= 0) kind = "SAP";
+        else if (x.f.indexOf("PSI Raw_ES") >= 0) kind = "ES";
+        if (kind) break;
+      }
+    }
+    const weekly = new Array(NW).fill(null); // null = 빈칸("")
+    const stored = new Array(NW).fill(null);
+    const formulaMask = new Array(NW).fill(false);
+    for (let i = 0; i < NW; i++) {
+      const x = cols.get(MR_WEEK_FIRST_COL + i);
+      if (x && x.kind === "number") stored[i] = x.value;
+      if (x && x.hasF) formulaMask[i] = true;
+    }
+    let computed = false;
+    if (kind && mcode != null) {
+      for (let i = 0; i < NW; i++) {
+        if (!formulaMask[i]) { weekly[i] = stored[i]; continue; }
+        const mon = weeks[i].monday;
+        let val = null;
+        if (kind === "HK" && fhAnchor) {
+          const rel = (mon - fhAnchor.monday) / 7 + 1;
+          if (rel < 1) { val = null; }
+          else {
+            const wkNum = isoWeekNumOfSerial(mon);
+            const yr = yearOfSerial(mon + 3);
+            const col = fhMatchCol(wkNum, yr, yr === hkYear);
+            val = 0;
+            if (col != null) {
+              for (const frn of fhByM.get(mcode) || []) {
+                const v = gnum(fh, frn, col);
+                if (v != null) val += v;
+              }
+            }
+          }
+        } else if (kind === "SAP" && psiAnchor) {
+          const n = (mon - psiAnchor.monday) / 7 + 1;
+          if (n < 1) val = null;
+          else {
+            const col = sapCols.get("mr " + n + "w");
+            val = 0;
+            if (col != null && plant != null) {
+              for (const srn of sapByKey.get(mcode + "|" + plant.trim().toLowerCase()) || []) {
+                const v = gnum(sap, srn, col);
+                if (v != null) val += v;
+              }
+            }
+          }
+        } else if (kind === "ES") {
+          val = 0;
+          for (const e of esByM.get(mcode) || []) if (e.d >= mon && e.d < mon + 7) val += e.q;
+        } else { weekly[i] = stored[i]; continue; }
+        weekly[i] = val;
+        computed = true;
+      }
+    } else {
+      for (let i = 0; i < NW; i++) weekly[i] = stored[i];
+    }
+    // 월 합계 (SUMPRODUCT: 빈칸·텍스트는 0). 손으로 입력한 월 상수(JP 행 EE~EH 등)는 계산하지 않고 저장값을 그대로 쓴다.
+    const monthly = new Array(NM).fill(0);
+    const storedMonthly = [], monthlyHand = [], monthlyFormula = [];
+    const EE = colNumFromLetters("EE");
+    for (let m = 0; m < NM; m++) {
+      const x = cols.get(EE + m);
+      storedMonthly.push(x && x.kind === "number" ? x.value : null);
+      const isSum = !!(x && x.hasF && /SUMPRODUCT/i.test(x.f || ""));
+      monthlyHand.push(!isSum);
+      monthlyFormula.push(!!(x && x.hasF));
+      if (isSum) {
+        let s = 0;
+        for (let i = 0; i < NW; i++) {
+          const v = weekly[i];
+          if (v != null && weights[m][i]) s += v * weights[m][i];
+        }
+        monthly[m] = s;
+      } else monthly[m] = storedMonthly[m] == null ? 0 : storedMonthly[m];
+    }
+    // 27년 합계/평균 (EU = SUM(EI:ET), EV = EU/12, EW = EV/4) -- 수식이 그 모양일 때만
+    const sum27 = monthly.slice(4, 16).reduce((a, b) => a + b, 0);
+    const eu = cols.get(colNumFromLetters("EU")), ev = cols.get(colNumFromLetters("EV")), ew = cols.get(colNumFromLetters("EW"));
+    const tail = {
+      EU: eu && eu.hasF && /^SUM\(EI\d+:ET\d+\)$/.test((eu.f || "").trim()) ? sum27 : null,
+      EV: ev && ev.hasF && /^EU\d+\/12$/.test((ev.f || "").trim()) ? sum27 / 12 : null,
+      EW: ew && ew.hasF && /^EV\d+\/4$/.test((ew.f || "").trim()) ? sum27 / 48 : null,
+    };
+    rows.push({ row: r, corp, mcode, plant, kind, weekly, stored, formulaMask, monthly, storedMonthly, monthlyHand, tail, computed });
+  }
+  const byKey = new Map();
+  for (const rw of rows) {
+    if (rw.mcode == null || !rw.corp) continue;
+    const key = rw.corp + "|" + Math.round(rw.mcode);
+    if (!byKey.has(key)) byKey.set(key, []);
+    byKey.get(key).push(rw);
+  }
+  return { rows, byKey, weeks, weights, anchors: { psi: psiAnchor, fh: fhAnchor }, E1, issues, es: { min: esMin, max: esMax }, NW, NM };
+}
+
+// 같은 (법인, M-Code) 행이 여럿이면 데이터/수식이 있는 한 줄만 고른다. (없으면 첫 줄)
+function pickDataRow(rowsOfKey) {
+  if (!rowsOfKey || !rowsOfKey.length) return null;
+  if (rowsOfKey.length === 1) return rowsOfKey[0];
+  const withF = rowsOfKey.filter((r) => r.kind);
+  if (withF.length === 1) return withF[0];
+  const withData = rowsOfKey.filter((r) => r.weekly.some((v) => v != null && v !== 0) || r.kind);
+  if (withData.length >= 1) return withData[0];
+  return rowsOfKey[0];
+}
+
+// 재계산 값과 마스터에 저장된 값을 비교한다.
+function diffMr(calc) {
+  const diffs = [];
+  for (const rw of calc.rows) {
+    if (!rw.kind) continue;
+    for (let i = 0; i < calc.NW; i++) {
+      if (!rw.formulaMask[i]) continue;
+      const a = rw.stored[i], b = rw.weekly[i];
+      if (a == null && b == null) continue;
+      const aa = a == null ? 0 : a, bb = b == null ? 0 : b;
+      if (Math.abs(aa - bb) > 0.5 || (a == null) !== (b == null)) {
+        if (a == null && b == null) continue;
+        diffs.push({ row: rw.row, mcode: rw.mcode, corp: rw.corp, week: i, monday: calc.weeks[i].monday, stored: a, calc: b });
+      }
+    }
+  }
+  return diffs;
+}
+
+// ---- MR 커버리지 알람 ----
+// 마스터/MR_순수의 모든 M-Code 행에 대해, 기준 주차(startDate가 속한 주)부터
+// weeksAhead주 동안 MR이 모두 채워져 있는지 확인한다. (예전에는 항상 시트 첫 열(K)부터
+// 세어서, 이미 지난 주차의 빈칸까지 "MR 미확인"으로 잘못 표시했다.)
+async function checkMrCoverage(masterZip, weeksAhead, startDate) {
   const masterShared = await resolveSharedStrings(masterZip);
   const { xml: masterXml } = await resolveSheetXml(masterZip, "마스터");
   const { xml: mrXml } = await resolveSheetXml(masterZip, "MR_순수");
@@ -836,8 +2279,6 @@ async function checkMrCoverage(masterZip, weeksAhead) {
     const c = XP.readCell(xml, ref, masterShared);
     return c.kind === "missing" || c.kind === "empty" ? null : c.value;
   };
-  // Read-only here (never writes), but still error-safe: a stale #VALUE!
-  // etc. counts as "not confirmed" for the coverage alarm, same as blank.
   const mCellNum = (xml, ref) => {
     const c = XP.readCell(xml, ref, masterShared);
     if (c.kind === "missing" || c.kind === "empty" || c.kind === "error") return null;
@@ -849,6 +2290,12 @@ async function checkMrCoverage(masterZip, weeksAhead) {
   const masterMaxRow = masterRowNums.length ? Math.max(...masterRowNums) : 5;
   const K1COL = 11;
 
+  let startOffset = 0;
+  const e1 = XP.readCell(mrXml, "E1", masterShared);
+  if (startDate && e1.kind === "number") {
+    startOffset = Math.max(0, Math.round((mondaySerialOfDate(startDate) - e1.value) / 7));
+  }
+
   const gaps = [];
   for (let r = 5; r <= Math.max(masterMaxRow, 5); r++) {
     const corp = mCellText(masterXml, "B" + r);
@@ -856,7 +2303,8 @@ async function checkMrCoverage(masterZip, weeksAhead) {
     if (!corp || !mcodeRaw) continue;
     const missingWeeks = [];
     for (let w = 0; w < weeksAhead; w++) {
-      const col = K1COL + w;
+      const col = K1COL + startOffset + w;
+      if (col > MR_WEEK_LAST_COL) break;
       const v = mCellNum(mrXml, CU.colLetter(col) + r);
       if (v == null) missingWeeks.push(w);
     }
@@ -867,47 +2315,20 @@ async function checkMrCoverage(masterZip, weeksAhead) {
 
 // ---- Sellin pipeline ----
 // Replaces the master's broken SharePoint-external-link formulas in
-// 오더_선적 (AO/AP/AQ/AR/AT/AU/CD/CE) with real values summed from the
-// user's own Sellin export (Sheet0). Validated against real files:
-// Netherland/1032648 -> ATP=842, At Dock=5376 confirmed to match exactly
-// -- against the raw-file column LAYOUT in use at that time.
-//
-// IMPORTANT, confirmed the hard way: Sheet0's column layout is NOT stable.
-// A real user export later had one extra column inserted (right after the
-// M-Code column, "HRCY-CD-7"), which silently shifted every single column
-// from there on by +1 -- e.g. the ATP figure ended up one column away from
-// where a hardcoded-letter reader expected it, so every field was quietly
-// filled from the WRONG source column (values still looked like plausible
-// numbers, so nothing errored -- it just silently corrupted 오더_선적).
-// To be immune to this whole class of failure, columns are resolved by
-// their ROW 1 HEADER TEXT (which is stable across exports) rather than by
-// hardcoded letter. If a header goes missing entirely (format changed more
-// drastically), this throws instead of silently mis-filling data.
+// 오더_선적 (AX/AY/AZ/BA/BB/BD/BE/CY/CZ) with real values summed from the
+// user's own Sellin export (Sheet0). Columns of Sheet0 are resolved by their
+// ROW 1 HEADER TEXT (stable across exports), never by hardcoded letter.
 //
 // Sheet0 quirks this accounts for:
-// - Channel (col, header "Channel") is a "fill-down" pivot column: only
-//   the first row of each block carries the label ('OE'/'RE'/'TOTAL'), the
-//   rest are blank and inherit it. Only Channel=='OE' rows count; 'RE'
-//   must be excluded or SUMIFS-equivalent totals are wildly inflated.
+// - Channel is a "fill-down" pivot column: only the first row of each block
+//   carries the label ('OE'/'RE'/'TOTAL'); only Channel=='OE' rows count.
 // - M-Code lives in the column headed "HRCY-CD-7", as text.
-// - Sheet0 IS corp/법인-specific after all -- the column headed "HRCY-NM-3"
-//   carries the 법인 name on every leaf row (densely, not fill-down), and
-//   the SAME M-Code can appear under multiple different 법인 blocks with
-//   DIFFERENT per-법인 quantities (confirmed against real export data: e.g.
-//   M-Code 1032648 has its own Netherland row and its own separate China
-//   row, each with its own EPC). A 법인's true value for an M-Code is ONLY
-//   that 법인's own row(s) -- summing across every row that shares the
-//   M-Code regardless of 법인 silently pulls in other 법인's quantities too
-//   (this was exactly the earlier bug: Netherland's EPC for 1032648 showing
-//   3076 instead of its true 3072, because China's 4 units on a separate
-//   row were being added in). So sums are keyed by "법인|mcode", with a
-//   mcode-only aggregate kept alongside purely as a last-resort fallback
-//   for the rare case a 오더_선적 row's 법인 text has no matching 법인 block
-//   in Sheet0 at all (flagged in the report, never silent).
-// - Sheet0 can be 100MB+ (18,900+ rows x 136 columns), so this uses a
-//   dedicated single-pass column-filtered scan rather than the per-row
-//   getRowSpan/readCell helpers used elsewhere (those are fine for the
-//   hundred-row sheets, but O(rows^2) here would hang the browser).
+// - 법인 name ("HRCY-NM-3") is on every leaf row; the SAME M-Code can appear
+//   under several 법인 with DIFFERENT quantities, so sums are keyed by
+//   "법인|mcode"; an M-Code-only aggregate is kept purely as a last-resort
+//   fallback (flagged in the report, never silent).
+// - Sheet0 can be 100MB+, so a dedicated single-pass column-filtered scan is
+//   used instead of per-row helpers.
 const SELLIN_HEADER_TEXT = {
   channel: "Channel",
   mcode: "HRCY-CD-7",
@@ -923,36 +2344,14 @@ const SELLIN_HEADER_TEXT = {
   Confirm: "nonCyEpcConfirmQty",
   InProd: "nonCyEpcProdQty",
 };
-// 오더_선적's own column layout (destination side) is NOT resolved by header
-// text like Sheet0 is -- these letters are hardcoded, same as the rest of
-// this file's 마스터/오더_선적 writers. Verified directly against a real
-// export: EPC total ("epcTotalQty") always equals epcCyQty + epcFactoryQty
-// EXACTLY (checked across 5 real 법인/M-Code combinations, including one
-// with a non-zero CY portion) -- so splitting EPC into its own "CY" and
-// "Factory" columns (AR/AS) never changes the row's TTL, it only shows the
-// same total broken into its two real components instead of one.
-// AR/AS used to be a single "EPC" column with TTL right after it at the old
-// AS; the user inserted one new column there by hand (splitting EPC into
-// CY + Factory) which pushed everything from the old AS onward by +1 --
-// TTL's own formula (SUM(AO:AS)) auto-adjusted for this on its own, but
-// CD/CE (Confirm/InProd, used by unrelated 생산일수 formulas further right)
-// shifted to CE/CF and have to be hardcoded at their new letters here too.
-// NOTE on CP/CQ (Confirm/InProd): these were CE/CF until the user had 7
-// columns (AX:CI -- the 재고 커버리지 block, 2026-10) inserted directly in
-// front of what was then column AX (CE(83)+7=90=CL, CF(84)+7=91=CM), and
-// THEN a second round (same month) added 4 more columns (2 before the old
-// BA, 2 before the old BD) to fit a 리드타임-aware 여유개월/주문데드라인월
-// pair onto each of the two coverage blocks -- that shift pushed CL/CM to
-// CL+4=CP(90+4=94), CM+4=CQ(91+4=95).
-// 2026-10, LATER round (MR_순수 extended through Dec'27): 9 more monthly MR
-// pull-through columns were inserted directly in front of what was then
-// column AO (the first SELLIN_MAP destination), shifting EVERY column at
-// or after old-AO right by +9: AO->AX, AP->AY, AQ->AZ, AR->BA, AS->BB,
-// AU->BD, AV->BE, CP->CY, CQ->CZ. AD and AI:AN stayed BEFORE the insertion
-// point and are unaffected. If 오더_선적's columns are ever restructured
-// again, re-derive these the same way (or better: resolve by header text
-// like resolveSellinHeaderCols does for the SOURCE side -- this
-// destination side still doesn't, same limitation as before).
+// 오더_선적's own column layout (destination side) is hardcoded here (same as
+// the rest of this file's 마스터/오더_선적 writers). History of insertions:
+//  - EPC was split into CY + Factory (one column inserted at old AS).
+//  - 7 columns (AX:CI coverage block) + 4 more (여유개월/주문데드라인월) inserted.
+//  - 9 monthly MR pull-through columns inserted in front of the old AO:
+//    AO->AX, AP->AY, AQ->AZ, AR->BA, AS->BB, AU->BD, AV->BE, CP->CY, CQ->CZ.
+// If 오더_선적's columns are restructured again, re-derive these (Stock Status
+// side now resolves them by header text -- see resolveOfStockCols).
 const SELLIN_MAP = [
   ["AX", "ATP"],
   ["AY", "AtDock"],
@@ -965,9 +2364,6 @@ const SELLIN_MAP = [
   ["CZ", "InProd"],
 ];
 
-// Scans Sheet0's row 1 and resolves each SELLIN_HEADER_TEXT key to whatever
-// column letter currently holds that header -- so a future column
-// insertion/removal upstream shifts letters but never breaks this mapping.
 function resolveSellinHeaderCols(sheetXml, sharedStrings) {
   const row1 = XP.getRowSpan(sheetXml, 1);
   if (!row1) throw new Error("Sellin 원본 파일에서 헤더 행(1행)을 찾을 수 없습니다.");
@@ -1056,22 +2452,9 @@ function scanSellinSums(sheetXml, sharedStrings, resolvedCol) {
 
   const rowNumsSorted = [...rows.keys()].sort((a, b) => a - b);
   let lastChannel = null;
-  // 법인("corp") IS present on Sheet0 -- see the comment above
-  // SELLIN_HEADER_TEXT. Every real export checked so far fills it in on
-  // every single leaf row (not fill-down like Channel), but it's tracked
-  // with the same last-known-value carry-forward as Channel anyway, purely
-  // as a defensive fallback in case some export variant ever leaves it
-  // blank on continuation rows -- harmless when the column is dense (which
-  // is every case seen so far), since a non-blank cell always overwrites it.
-  // A 법인's own rows for an M-Code can carry very different quantities
-  // from another 법인's rows for that SAME M-Code, so the primary map is
-  // keyed by "법인|mcode". byMcodeOnly is kept purely as a last-resort
-  // fallback for a 오더_선적 row whose 법인 text has no matching block in
-  // Sheet0 at all (runSellinPipeline reports that case instead of silently
-  // using it).
   let lastCorp = "";
-  const byCorpAndMcode = new Map(); // "corp|mcode" -> { ATP, AtDock, OnWater, EPC, W, W1, Confirm, InProd }
-  const byMcodeOnly = new Map(); // mcode -> same shape, summed across every 법인 (fallback only)
+  const byCorpAndMcode = new Map(); // "corp|mcode" -> sums
+  const byMcodeOnly = new Map(); // mcode -> sums across every 법인 (fallback only)
   const blank = () => ({ ATP: 0, AtDock: 0, OnWater: 0, EPC: 0, CY: 0, Factory: 0, W: 0, W1: 0, Confirm: 0, InProd: 0 });
   for (const rn of rowNumsSorted) {
     const cells = rows.get(rn);
@@ -1104,50 +2487,25 @@ function scanSellinSums(sheetXml, sharedStrings, resolvedCol) {
   return { byCorpAndMcode, byMcodeOnly };
 }
 
-// 2026-10, LATEST round: the old month-based nested-IF coverage/leadtime/
-// deadline logic (AY/AZ/BA/BB and BD/BE/BF/BG, hardcoded to a fixed
-// Oct'26-Mar'27 window) was replaced entirely with a week-precision engine
-// -- see the "Weekly coverage engine" block below. The +9 column shift from
-// the MR_순수 Dec'27 extension (see the SELLIN_MAP comment above) applies
-// here too. Current layout (all letters are the NEW, post-shift ones):
+// Current 오더_선적 layout of the cached-value refresh chain (post +9 shift):
 //   BC (TTL)               = ATP+AtDock+OnWater+CY+Factory
 //   BG (가용재고/stock1)     = ATP+AtDock+OnWater+CY
-//   BH/BI                  = 소진예상시점/커버리지(주), 1단계 -- from the weekly engine
+//   BH/BI                  = 소진예상시점/커버리지(주), 1단계 -- weekly engine
 //   BJ/BK                  = 여유(주)/주문데드라인(주차), 1단계
 //   BL (2차가용재고/stock2)  = BG + Factory
-//   BM/BN                  = 소진예상시점/커버리지(주), 2단계
-//   BO/BP                  = 여유(주)/주문데드라인(주차), 2단계
+//   BM/BN, BO/BP           = same for stage 2
 //   CC (오더 필요량 input)   = (CY+Factory) - BX   [BX = EPC(목표), read-only]
 //   CD                     = BC(TTL) - BY          [BY = TTL(목표), read-only]
-//   BR                     = CD (pass-through)
-//   BS                     = IFERROR(CEILING(BR,AD), BR) then MAX(that, BR)
-//   BT                     = BS / AD
-// (BX/BY/AD/B(법인) are read-only here -- this engine never writes them,
-// they come from the master's own pre-existing formulas/values and are
-// trusted as-is.) Relying on Excel to recalculate these on open is NOT
-// reliable enough in practice (fullCalcOnLoad is set on the workbook, but
-// some Excel calc-mode/viewer combinations still show the old cached
-// number until a manual recalc) -- so every cell in this chain, AND the
-// matching row in the hidden "주간커버리지_계산" helper sheet (whose own
-// cells are what BH:BP's live formulas actually reference), gets its
-// CACHED value refreshed here, immediately, in addition to whatever Excel
-// does later. The underlying <f> formula text itself is never touched,
-// only its cached <v>. If 오더_선적 or the helper sheet is restructured
-// again, these need re-deriving the same way (see colLetter/the insert
-// script, and build_weekly_system.py in the scratchpad which generated the
-// helper sheet's formulas originally) -- this destination side still isn't
-// resolved by header text, same pre-existing limitation as SELLIN_MAP.
+//   BR = CD ; BS = MAX(IFERROR(CEILING(BR,AD),BR),BR) ; BT = BS / AD
+// NOTE: the weekly-coverage cache below is computed from MR_순수's CACHED
+// values, so it is only as fresh as the master's last Excel recalculation.
+// The workbook is flagged fullCalcOnLoad so Excel recalculates it on open.
 
-// ---- Weekly coverage engine (2026-10 재설계) ----
+// ---- Weekly coverage engine ----
 // Mirrors the hidden "주간커버리지_계산" helper sheet's own Excel formulas
-// EXACTLY: same "last fully covered week" logic (a COUNTIF-equivalent
-// count over MR_순수's 123 raw weekly columns K:EC, not an early break, so
-// this matches Excel's COUNTIF semantics even if a weekly figure were ever
-// negative), same lead time in exact weeks, same "몇월 몇주차" label format
-// (week-of-month = ROUNDUP(day-of-Monday/7), year prefix omitted only when
-// the week's Monday falls in the current calendar year). If the helper
-// sheet's formulas are ever changed by hand in the master, this needs to
-// be re-derived to match.
+// EXACTLY: same "last fully covered week" logic (COUNTIF-equivalent count over
+// MR_순수's 123 raw weekly columns K:EC), same lead time in exact weeks, same
+// "몇월 몇주차" label format.
 const WEEKLY_HELPER_SHEET = "주간커버리지_계산";
 const WEEK_DATA_START_COL = 11; // K -- MR_순수's first weekly column
 const WEEK_DATA_N = 123; // K..EC
@@ -1174,16 +2532,6 @@ function weekOfMonthLabel(d, nowUtc) {
   return (y === nowUtc.getUTCFullYear() ? "" : (y % 100) + "년 ") + m + "월 " + weekNo + "주차";
 }
 
-/**
- * Reads MR_순수's 123 raw weekly cells (K..EC) for one row and returns the
- * demand-only pieces shared by both coverage stages (1차/2차): the running
- * cumulative-sum array, the anchor date (E1), and "today"'s 1-based week
- * index t -- all independent of which stock figure is being evaluated.
- * Blank/text/error weekly cells are coerced to 0, matching the helper
- * sheet's own N(...) wrapper (MR_순수 legitimately returns "" for weeks
- * before a source system's valid-data start -- e.g. SAP-sourced rows
- * before PSI SAP RAW's anchor week).
- */
 function readWeeklyDemand(mrXml, masterShared, mrRow, nowDate) {
   const e1Cell = XP.readCell(mrXml, "E1", masterShared);
   if (e1Cell.kind !== "number") return null;
@@ -1207,12 +2555,6 @@ function readWeeklyDemand(mrXml, masterShared, mrRow, nowDate) {
   return { E1, cum, t, nowUtc };
 }
 
-/**
- * Given the shared weekly-demand pieces (from readWeeklyDemand) and one
- * stock figure, replicates the helper sheet's EE..ES formulas: last-fully-
- * covered-week via a COUNTIF-equivalent count, buffer = covered weeks -
- * lead time (in weeks), and both labels in "몇월 몇주차" form.
- */
 function coverageForStock(weekly, stock, leadtimeWks) {
   const { E1, cum, t, nowUtc } = weekly;
   const dateOfIdx = (idx1) => addDaysUTC(E1, 7 * (idx1 - 1));
@@ -1229,14 +2571,6 @@ function coverageForStock(weekly, stock, leadtimeWks) {
   return { t, J, coveredWeeks, buffer, deadlineIdx, exhaustLabel, deadlineLabel, cumAtTMinus1: beforeToday };
 }
 
-/**
- * Refreshes 오더_선적's row `r` AND the matching row in the hidden
- * "주간커버리지_계산" helper sheet (same row numbers, 1:1 -- both start at
- * OF_DATA_ROW_START). `mrXml`/`helperXml` may be null (older master files
- * predating the weekly redesign) -- the weekly-coverage section is simply
- * skipped in that case, everything else still refreshes. Returns
- * { ofXml, helperXml } (helperXml unchanged/null if it wasn't touched).
- */
 function refreshDownstreamFormulaCache(ofXml, helperXml, mrXml, r, s, masterShared, nowDate) {
   const ttl = s.ATP + s.AtDock + s.OnWater + s.CY + s.Factory;
   if (XP.findCell(ofXml, "BC" + r)) {
@@ -1340,7 +2674,7 @@ function refreshDownstreamFormulaCache(ofXml, helperXml, mrXml, r, s, masterShar
       } catch (e) {}
       const adCell = XP.readCell(ofXml, "AD" + r, masterShared);
       const ad = adCell.kind === "number" && Number.isFinite(adCell.value) ? adCell.value : null;
-      let bs = cd; // IFERROR(...) fallback when AD is missing/zero, same as the live formula would do
+      let bs = cd;
       if (ad) bs = Math.max(Math.ceil(cd / ad) * ad, cd);
       if (XP.findCell(ofXml, "BS" + r)) {
         try {
@@ -1357,15 +2691,6 @@ function refreshDownstreamFormulaCache(ofXml, helperXml, mrXml, r, s, masterShar
   return { ofXml, helperXml };
 }
 
-/**
- * masterZip: zipLike for the master workbook (mutated: 오더_선적 sheet --
- *   columns AX/AY/AZ/BA/BB/BD/BE/CY/CZ, their existing external-link
- *   formulas intentionally replaced with plain values per explicit
- *   confirmation, plus cached-value refreshes through BT -- and, when
- *   present, the matching row of the hidden "주간커버리지_계산" helper
- *   sheet). MR_순수 is read-only here.
- * sellinZip: zipLike for the user's raw Sellin export (Sheet0).
- */
 async function runSellinPipeline(masterZip, sellinZip) {
   const { path: ofPath, xml: ofXmlOrig } = await resolveSheetXml(masterZip, "오더_선적");
   let ofXml = ofXmlOrig;
@@ -1381,12 +2706,6 @@ async function runSellinPipeline(masterZip, sellinZip) {
     return Number.isFinite(n) ? n : null;
   };
 
-  // MR_순수 (read-only, for the weekly coverage engine) and the hidden
-  // "주간커버리지_계산" helper sheet (its cached values get refreshed
-  // alongside 오더_선적's) -- both may legitimately be absent on an older
-  // master file that predates the 2026-10 weekly redesign, in which case
-  // the weekly-coverage section of refreshDownstreamFormulaCache is simply
-  // skipped (everything else in this pipeline still runs normally).
   let mrXml = null;
   try {
     mrXml = (await resolveSheetXml(masterZip, "MR_순수")).xml;
@@ -1413,10 +2732,6 @@ async function runSellinPipeline(masterZip, sellinZip) {
     const mcodeRaw = mCellNum(ofXml, "N" + r);
     if (!corp || !mcodeRaw) continue;
     const mcode = Math.round(mcodeRaw);
-    // 법인별 값이 반드시 우선: 같은 M-Code를 다른 법인도 쓰는 경우, 그 법인
-    // 자신의 수치만 써야 한다 (전체를 합치면 타 법인 수량이 섞여 들어간다).
-    // Sheet0에 이 법인+M-Code 조합이 전혀 없을 때만(법인명 표기 차이 등) 과거
-    // 방식(M-Code 전체 합산)으로 fallback하되, 상태를 명확히 구분해 리포트한다.
     let s = byCorpAndMcode.get(corp.trim() + "|" + mcode);
     let status;
     if (s) {
@@ -1430,10 +2745,6 @@ async function runSellinPipeline(masterZip, sellinZip) {
       report.push({ row: r, mcode, corp, status: "missing" });
       continue;
     }
-    // Not every 오더_선적 row has all 8 target cells as pre-existing template
-    // cells (a few rows near the bottom of the block are missing CD/CE) --
-    // this engine never invents new <c> elements, so skip just that column
-    // for that row rather than failing the whole row or the whole run.
     const edits = [];
     const skippedCols = [];
     for (const [dstC, key] of SELLIN_MAP) {
@@ -1461,9 +2772,7 @@ async function runSellinPipeline(masterZip, sellinZip) {
 //   year = YEAR(TODAY()-WEEKDAY(TODAY(),2)+4)   (ISO week-year, Thursday rule)
 //   date-of-week1-day1 = DATE(year,1,4)-WEEKDAY(DATE(year,1,4),2)+1+(week-1)*7
 // so writing "{isoYear}-CW{week}" as inline text round-trips through those
-// formulas to the exact same Monday date, regardless of what day BU1/AJ1 is
-// read back on (unlike writing a bare week number, whose year would instead
-// depend on TODAY() at the moment the workbook is later reopened in Excel).
+// formulas to the exact same Monday date.
 function isoWeekInfo(dateInput) {
   const d = dateInput instanceof Date ? new Date(dateInput.getTime()) : new Date(dateInput);
   const utc = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
@@ -1480,26 +2789,12 @@ function cwAnchorText(dateInput) {
 }
 
 // ---- PSI SAP RAW pipeline ----
-// 'PSI SAP RAW' is one of the raw/grey-tab sheets that used to be refreshed
-// by Power Query straight from a SharePoint-hosted SAP export (now broken --
-// see project notes). Its columns (A..BR, 70 cols) were verified to match
-// the user's own "네덜란드 PSI SAP RAW" export file EXACTLY, column-for-column,
-// same order, same headers -- so this is a straight row-append copy, same
-// shape as the 빌링Raw pipeline but with NO column offset (source col N ->
-// dest col N, 1:1, since there's no unused helper column in between like
-// 빌링Raw's column J).
-// Also sets BT1's "기준 CW ▶" anchor (BU1) from the dashboard's CW-date
-// picker -- this is what MR_순수's SUMIFS-over-this-sheet formulas use to
-// know which raw column is "this week" (MR 1W) vs future weeks.
+// 'PSI SAP RAW' columns A..BR (70 cols) match the user's own "네덜란드 PSI SAP
+// RAW" export column-for-column, so this is a straight row-append copy (no
+// column offset). Also sets BU1's "기준 CW ▶" anchor from the dashboard's
+// CW-date picker (MR_순수 uses it, via BX1, to know which raw column is "MR 1W").
 const PSI_SAP_MAX_COL = 70; // A..BR
 
-/**
- * masterZip: zipLike for the master workbook (mutated: 'PSI SAP RAW' sheet only)
- * psiZip: zipLike for the user's raw PSI SAP RAW (네덜란드) export (Sheet1)
- * cwDate: JS Date (or date-parseable value) from the dashboard's CW picker,
- *         used to set the "기준 CW" anchor cell (BU1). May be null/undefined
- *         to skip touching BU1 (e.g. if the picker was left empty).
- */
 async function runPsiSapPipeline(masterZip, psiZip, cwDate) {
   const { path: sheetPath, xml: templateXml } = await resolveSheetXml(masterZip, "PSI SAP RAW");
   let sheetXml = templateXml;
@@ -1543,45 +2838,31 @@ async function runPsiSapPipeline(masterZip, psiZip, cwDate) {
 }
 
 // ---- Forecast Hankook pipeline ----
-// 'Forecast Hankook' is a "붙여넣은 원본 그대로" sheet (its own A1 note says
-// so) -- unlike PSI SAP RAW there's no Power Query behind it, the raw pivot
-// export (Part No + weekly qty columns, e.g. "2026 36") has historically
-// just been pasted straight in, growing the header row to the right over
-// time as new weeks arrived.
-//
-// IMPORTANT, verified directly against MR_순수's own formulas (not assumed):
-// every MR_순수 cell that pulls a weekly number from this sheet does
+// 'Forecast Hankook' is a "붙여넣은 원본 그대로" sheet. Every MR_순수 cell that
+// pulls a weekly number from this sheet does
 //   SUMIFS(INDEX('Forecast Hankook'!$C:$AZ, 0, MATCH(week, 'Forecast Hankook'!$C$2:$AZ$2, 0)),
 //          'Forecast Hankook'!$B:$B, mcode)
-// i.e. the week-header search is HARD-CODED to columns C..AZ (3..52) in
-// every one of those formulas -- not a dynamic/whole-row range. A week
-// header placed at column AZ+1 or beyond would never be found by MATCH, so
-// writing data there would silently vanish downstream no matter what. That
-// makes column AZ (52) a real, formula-enforced ceiling, not a guess -- so
-// this pipeline WILL extend the header (and the matching data cells) to
-// the right, but only ever up to column AZ; anything past that is reported
-// as out of range rather than written somewhere formulas can't see.
-// (The 'HK_범위' defined name = 'Forecast Hankook'!$A$2:$AZ$100 turned out
-// to be unreferenced by any live formula -- AZ matters here because the
-// SUMIFS/MATCH formulas hard-code it directly, not because of that name.)
+// i.e. the week-header search is HARD-CODED to columns C..AZ (3..52) -- so
+// column AZ (52) was a real, formula-enforced ceiling. widenFhRange() rewrites those
+// formulas to C..DP (120). This pipeline extends the header to the right up to DP; any
+// week past that is reported as out of range rather than written somewhere
+// formulas can't see.
 //
-// - Row match: by Part No (column A) against the master's own existing
-//   rows. A raw Part No with no existing master row is left alone (not
-//   inserted -- would change the row count) and reported as "row_missing".
-// - Column match: by "YYYY WW" week label against the master's header row
-//   (row 2), extending it (new literal "YYYY WW" text cells, styled like
-//   the current rightmost header cell) when a raw week isn't there yet and
-//   there's still room before column AZ.
-// - New (row, week) data cells are invented only where a row is actually
-//   being written to this run (never pre-emptively for every row), styled
-//   like that row's own rightmost existing cell so they match visually.
-// - M-Code (column B): deliberately left untouched -- whatever the master
-//   already has for that Part No. This pipeline has no new source of
-//   Part No -> M-Code truth, so touching B would just be guessing.
+// - Row match: by Part No (column A) against the master's own existing rows.
+// - Column match: by "YYYY WW" week label against the master's header row 2.
+// - M-Code (column B): deliberately left untouched.
+// - 기준 주차(AJ1): 이제 이 파이프라인이 직접 기록한다 (이전에는 쓰지 않아서 예전 값이
+//   그대로 남았고, 새 데이터에 덮이지 않은 옛 주차 열의 값이 MR에 섞여 들어갔다).
 const FH_DATA_ROW_START = 3;
 const FH_HEADER_ROW = 2;
-const FH_HEADER_SCAN_MAX_COL = 120; // generous read-scan bound (raw files can run past AZ; we just won't write there)
-const FH_HEADER_HARD_CEIL_COL = 52; // 'AZ' -- see comment block above; never write/extend past this
+const FH_HEADER_SCAN_MAX_COL = 120;
+const FH_HEADER_HARD_CEIL_COL = 120; // 'DP' (마스터 수식 범위도 DP까지 넓혀 둔다: widenFhRange)
+
+// 원본 FH는 품번에 공백이 있다("2F0 601 433", "2Q0 601 433 C"), 마스터는 공백 없음("2F0601433").
+// 공백을 모두 지우고 대문자로 맞춰 비교한다.
+function normPartNo(v) {
+  return String(v).replace(/\s+/g, "").toUpperCase();
+}
 
 function parseWeekLabel(text) {
   const m = /^(\d{4})\s+(\d{1,2})$/.exec(String(text).trim());
@@ -1605,7 +2886,6 @@ function cellStyleAttr(xml, ref) {
   return m ? m[0] : "";
 }
 
-// Style of the rightmost <c> currently in a given <row>...</row> text block.
 function lastCellStyleAttrInRow(rowXmlText) {
   const matches = [...rowXmlText.matchAll(/<c r="[A-Z]+\d+"([^>]*?)(?:\/>|>)/g)];
   if (!matches.length) return "";
@@ -1613,18 +2893,6 @@ function lastCellStyleAttrInRow(rowXmlText) {
   return m ? m[0] : "";
 }
 
-// Inserts a brand-new <c> at its correct sorted position among the row's
-// existing cells (found by column number), rather than assuming the target
-// column is always past every cell already in the row. OOXML requires a
-// row's <c> elements to be in ascending column order, and while every
-// current caller only ever extends a row's own rightmost header/data
-// column so an end-append would coincidentally land in the right place, a
-// PART ROW can already hold a real cell further right than the column
-// being invented here -- e.g. a later week was filled in an earlier run
-// while an older week was left blank (no <c> written for it at all, which
-// is normal/sparse in real .xlsx rows) and is only being backfilled now.
-// Inserting positionally (not just appending at the end) keeps this
-// correct in that case instead of relying on an unverified assumption.
 function insertCellInRowXml(rowXml, ref, styleAttr, kind, value) {
   const colLettersMatch = ref.match(/^[A-Z]+/);
   if (!colLettersMatch) throw new Error("잘못된 셀 참조입니다: " + ref);
@@ -1641,16 +2909,16 @@ function insertCellInRowXml(rowXml, ref, styleAttr, kind, value) {
 
   const rowOpenMatch = rowXml.match(/<row\b[^>]*>/);
   if (!rowOpenMatch) throw new Error("행 시작 태그를 찾을 수 없습니다.");
-  let insertAt = rowOpenMatch.index + rowOpenMatch[0].length; // default: right after <row ...>, i.e. target is leftmost
+  let insertAt = rowOpenMatch.index + rowOpenMatch[0].length;
 
   const cellRe = /<c r="([A-Z]+)\d+"[^>]*?(?:\/>|>[\s\S]*?<\/c>)/g;
   let m;
   while ((m = cellRe.exec(rowXml))) {
     const c = colNumFromLetters(m[1]);
     if (c < targetCol) {
-      insertAt = m.index + m[0].length; // keep advancing past every existing cell to our left
+      insertAt = m.index + m[0].length;
     } else {
-      break; // first existing cell at/past our target column -- insert right before it
+      break;
     }
   }
   return rowXml.slice(0, insertAt) + cellXml + rowXml.slice(insertAt);
@@ -1662,9 +2930,6 @@ function colNumFromLetters(letters) {
   return n;
 }
 
-// Widens (never shrinks) the sheet's <dimension ref="A1:XX##"/> to cover a
-// newly-extended column, so the declared extent stays honest after adding
-// cells past it. Purely advisory in most readers, but kept accurate anyway.
 function widenDimension(xml, newMaxColNum) {
   const m = xml.match(/<dimension ref="[A-Z]+\d+:([A-Z]+)(\d+)"\s*\/>/);
   if (!m) return xml;
@@ -1675,14 +2940,12 @@ function widenDimension(xml, newMaxColNum) {
 }
 
 /**
- * masterZip: zipLike for the master workbook (mutated: 'Forecast Hankook'
- *   sheet only -- pre-existing (row, week-column) cells plus, when needed,
- *   new week-header/data cells up to column AZ, see comment block above)
- * fhZip: zipLike for the user's raw Forecast Hankook pivot export (its
- *   sheet is auto-detected -- real exports have varied sheet names like
- *   "Tabelle1", not a fixed "Sheet1")
+ * masterZip: zipLike for the master workbook (mutated: 'Forecast Hankook' sheet only)
+ * fhZip: zipLike for the user's raw Forecast Hankook pivot export (sheet auto-detected)
+ * cwDate: JS Date from the FH CW-date picker -> written to AJ1 ("기준 CW ▶"). May be
+ *         null to leave the anchor untouched.
  */
-async function runForecastHankookPipeline(masterZip, fhZip) {
+async function runForecastHankookPipeline(masterZip, fhZip, cwDate) {
   const { path: sheetPath, xml: templateXml } = await resolveSheetXml(masterZip, "Forecast Hankook");
   let sheetXml = templateXml;
   const masterShared = await resolveSharedStrings(masterZip);
@@ -1696,16 +2959,14 @@ async function runForecastHankookPipeline(masterZip, fhZip) {
     if (a.kind !== "string" || !a.value) continue;
     const b = XP.readCell(sheetXml, "B" + r, masterShared);
     const mcode = b.kind === "number" && Number.isFinite(b.value) ? Math.round(b.value) : null;
-    if (!partInfo.has(a.value)) partInfo.set(a.value, { row: r, mcode });
+    const pk = normPartNo(a.value);
+    if (!partInfo.has(pk)) partInfo.set(pk, { row: r, mcode });
   }
 
-  // 2) "YYYY WW" -> column-letter from the master's header row (row 2),
-  //    resolving bare week-number columns against the nearest preceding
-  //    text-labeled column's year. Also tracks the current rightmost
-  //    header column (maxHeaderCol) as the extension point.
+  // 2) "YYYY WW" -> column-letter from the master's header row (row 2)
   const weekColMap = new Map();
   let lastYear = null;
-  let maxHeaderCol = 2; // B -- weeks start at C; stays 2 if the header is somehow empty
+  let maxHeaderCol = 2;
   for (let c = 3; c <= FH_HEADER_HARD_CEIL_COL; c++) {
     const cell = XP.readCell(sheetXml, CU.colLetter(c) + FH_HEADER_ROW, masterShared);
     if (cell.kind === "missing" || cell.kind === "empty") continue;
@@ -1727,8 +2988,7 @@ async function runForecastHankookPipeline(masterZip, fhZip) {
   }
   const headerStyleAttr = cellStyleAttr(sheetXml, CU.colLetter(maxHeaderCol) + FH_HEADER_ROW) || cellStyleAttr(sheetXml, "C" + FH_HEADER_ROW);
 
-  // 3) raw pivot export: row 1 = "Part No label" + weekly "YYYY WW" headers,
-  //    row 2+ = Part No (col A) + weekly quantities
+  // 3) raw pivot export: row 1 = "Part No label" + weekly "YYYY WW" headers
   const rawSheetName = await firstSheetName(fhZip);
   const { xml: rawXml } = await resolveSheetXml(fhZip, rawSheetName);
   const rawShared = await resolveSharedStrings(fhZip);
@@ -1741,8 +3001,7 @@ async function runForecastHankookPipeline(masterZip, fhZip) {
     if (parsed) rawWeekCols.push({ col: c, year: parsed.year, week: parsed.week });
   }
 
-  // 3b) extend the header for any raw week not already mapped, in raw-file
-  // (i.e. chronological) order, stopping hard at column AZ.
+  // 3b) extend the header for any raw week not already mapped, stopping hard at AZ.
   const outOfRangeWeeks = new Set();
   for (const wc of rawWeekCols) {
     const key = wc.year + "-" + wc.week;
@@ -1767,12 +3026,13 @@ async function runForecastHankookPipeline(masterZip, fhZip) {
   let filled = 0,
     rowMissing = 0;
   const report = [];
+  const noMcode = [];
 
   for (let r = 2; r <= rawMaxRow; r++) {
     const partCell = XP.readCell(rawXml, "A" + r, rawShared);
     if (partCell.kind !== "string" || !partCell.value) continue;
     const partNo = partCell.value;
-    const info = partInfo.get(partNo);
+    const info = partInfo.get(normPartNo(partNo));
     if (!info) {
       rowMissing++;
       report.push({ partNo, status: "row_missing" });
@@ -1793,9 +3053,6 @@ async function runForecastHankookPipeline(masterZip, fhZip) {
       const vCell = XP.readCell(rawXml, CU.colLetter(wc.col) + r, rawShared);
       const val = vCell.kind === "number" && Number.isFinite(vCell.value) ? vCell.value : 0;
       if (!XP.findCell(sheetXml, destRef)) {
-        // this row didn't reach this far right before we extended the
-        // header above -- invent the cell now, styled like this row's own
-        // rightmost existing cell, then write into it below
         const rowXmlNow = XP.getRowSpan(sheetXml, info.row);
         const rowStyle = lastCellStyleAttrInRow(rowXmlNow.text) || cellStyleAttr(sheetXml, "C" + info.row);
         const newRowXml = insertCellInRowXml(rowXmlNow.text, destRef, rowStyle, "number", null);
@@ -1806,6 +3063,16 @@ async function runForecastHankookPipeline(masterZip, fhZip) {
     if (edits.length) sheetXml = XP.applyRowEdits(sheetXml, info.row, edits);
     filled++;
     report.push({ partNo, row: info.row, mcode: info.mcode, status: anyOutOfRange ? "partial_out_of_range" : "filled" });
+    if (info.mcode == null) noMcode.push(partNo);
+  }
+
+  // 4) FH 기준 주차(AJ1) 기록 -- 마스터 수식(AK1~AM1)이 "2026-CW42" 텍스트를 해석한다
+  let cwAnchor = null;
+  if (cwDate) {
+    if (XP.findCell(sheetXml, "AJ1")) {
+      cwAnchor = cwAnchorText(cwDate);
+      sheetXml = XP.writeInlineString(sheetXml, "AJ1", cwAnchor);
+    }
   }
 
   await masterZip.writeText(sheetPath, sheetXml);
@@ -1813,12 +3080,14 @@ async function runForecastHankookPipeline(masterZip, fhZip) {
   return {
     stats: { filled, rowMissing, outOfRangeWeekCount: outOfRangeWeeks.size },
     outOfRangeWeeks: [...outOfRangeWeeks],
+    noMcode,
     report,
+    cwAnchor,
   };
 }
 
 
-return { resolveSheetXml, resolveSharedStrings, runBillingPipeline, runStockStatusPipeline, runSellinPipeline, runPsiSapPipeline, runForecastHankookPipeline, checkMrCoverage, isoWeekInfo, cwAnchorText };
+return { writeViewSheets, checkBillingKeys, runAll, readSnapshotInfo, writeSnapshot, patchMrTrendCorp, snapWeekLabel, patchBillingSheet, refreshAnchorCaches, writeMrCaches, freezePastWeeksV2, removeCalcChain, computeMr, diffMr, pickDataRow, anchorFromInput, parseGrid, resolveSheetXml, resolveSharedStrings, runBillingPipeline, runStockStatusPipeline, runSellinPipeline, runPsiSapPipeline, runForecastHankookPipeline, checkMrCoverage, isoWeekInfo, cwAnchorText, readAnchorStates, restoreMonthlyMrLinks, widenFhRange, freezePastWeeks, forceFullCalcOnLoad, resolveOfStockCols, mondaySerialOfDate };
 })();
 
 </script>
@@ -1836,6 +3105,9 @@ return { resolveSheetXml, resolveSharedStrings, runBillingPipeline, runStockStat
       async writeText(path, text) {
         zip.file(path, text);
       },
+      async removeFile(path) {
+        zip.remove(path);
+      },
     };
   }
 
@@ -1851,6 +3123,7 @@ return { resolveSheetXml, resolveSharedStrings, runBillingPipeline, runStockStat
     fStock = el("f-stock"),
     fPic = el("f-pic"),
     fCwDate = el("f-cwdate"),
+    fFhDate = el("f-fhdate"),
     fSellin = el("f-sellin"),
     fPsiSap = el("f-psisap"),
     fFh = el("f-fh");
@@ -1875,25 +3148,19 @@ return { resolveSheetXml, resolveSharedStrings, runBillingPipeline, runStockStat
   wireFilename(fPsiSap, "fn-psisap");
   wireFilename(fFh, "fn-fh");
 
-  // Drag-and-drop: the WHOLE ".upload-row.dropzone" card is the drop target
-  // (not just the skinny native <input type=file>), with a visible dashed
-  // border that highlights solid on dragover so it's obvious where to drop.
-  // Dropping assigns the file to the row's own <input type=file> via
-  // DataTransfer and fires a real "change" event, so wireFilename above (and
-  // anything else listening for change) picks it up exactly as if the user
-  // had clicked and chosen the file themselves.
+  // Drag-and-drop: the WHOLE ".upload-row.dropzone" card is the drop target.
   function wireDropZone(input) {
     const row = input.closest(".upload-row");
     if (!row) return;
-    let dragDepth = 0; // dragenter/dragleave fire on every child too; a counter avoids flicker
+    let dragDepth = 0;
     row.addEventListener("dragenter", (e) => {
       e.preventDefault();
-      e.stopPropagation(); // a drop aimed at THIS row is an explicit, precise choice -- don't also run the page-wide auto-detect overlay/handler for it
+      e.stopPropagation();
       dragDepth++;
       row.classList.add("drag-over");
     });
     row.addEventListener("dragover", (e) => {
-      e.preventDefault(); // required or the browser's default (open the file) wins instead of a drop
+      e.preventDefault();
       e.stopPropagation();
       if (e.dataTransfer) e.dataTransfer.dropEffect = "copy";
     });
@@ -1909,19 +3176,13 @@ return { resolveSheetXml, resolveSharedStrings, runBillingPipeline, runStockStat
       row.classList.remove("drag-over");
       const files = e.dataTransfer && e.dataTransfer.files;
       if (!files || !files.length) return;
-      input.files = files; // DataTransfer-assigned FileList works on a real <input type=file>
+      input.files = files;
       input.dispatchEvent(new Event("change", { bubbles: true }));
     });
   }
   [fMaster, fNl, fEs, fStock, fSellin, fPsiSap, fFh].forEach(wireDropZone);
 
-  // ---- Auto-detect drop zone: drop any number of files ANYWHERE on the
-  // page (outside a specific upload row, which keeps its own precise
-  // drop-to-that-slot behavior above) and each file is opened, fingerprinted
-  // by its actual internal sheet names/headers, and routed to the matching
-  // slot automatically. Never guesses blindly where getting it wrong would
-  // silently corrupt data (billing NL vs ES in particular) -- low-confidence
-  // cases are left unassigned and reported so the user places them by hand.
+  // ---- Auto-detect drop zone ----
   const autoOverlay = el("autodetect-overlay");
   const autoResultBox = el("autodetect-result");
 
@@ -1963,13 +3224,9 @@ return { resolveSheetXml, resolveSharedStrings, runBillingPipeline, runStockStat
     return { xml, shared, cells: out };
   }
 
-  // Majority-vote a billing raw file's country from its own "Local Product
-  // Line" column (consistently country-prefixed, e.g. "NL1", "ES4" -- unlike
-  // the per-line "Country" column, which is the SHIP-TO country and varies
-  // row by row even within one entity's own export). Returns null rather
-  // than a guess when the vote isn't lopsided -- misrouting NL vs ES would
-  // silently mix entities again, exactly the bug class this session has
-  // been fixing all along.
+  // Majority-vote a billing raw file's country from its "Local Product Line"
+  // column (country-prefixed, e.g. "NL1", "ES4"). Returns null when the vote
+  // isn't lopsided -- misrouting NL vs ES would silently mix entities.
   async function guessBillingCountry(z, wbXml, relsXml, sheetName) {
     const header = await readSheetHeaderRow(z, wbXml, relsXml, sheetName, 1, 40);
     if (!header) return null;
@@ -1996,10 +3253,10 @@ return { resolveSheetXml, resolveSharedStrings, runBillingPipeline, runStockStat
     if (!total) return null;
     const entries = Object.entries(counts).sort((a, b) => b[1] - a[1]);
     const [topPrefix, topCount] = entries[0];
-    if (topCount / total < 0.9) return null; // ambiguous -- don't guess
+    if (topCount / total < 0.9) return null;
     if (topPrefix === "NL") return "nl";
     if (topPrefix === "ES") return "es";
-    return null; // some other country's billing raw -- no slot for it, don't force it in
+    return null;
   }
 
   async function classifyFile(file) {
@@ -2039,9 +3296,7 @@ return { resolveSheetXml, resolveSharedStrings, runBillingPipeline, runStockStat
       if (isPsi) return { slot: "psisap" };
     }
 
-    // Forecast Hankook: no distinctive sheet name (raw pivot export keeps
-    // whatever Excel gave it, e.g. "Tabelle1") -- fingerprint is a week-label
-    // ("YYYY WW") header instead, scanned on whichever sheet comes first.
+    // Forecast Hankook: fingerprint is a week-label ("YYYY WW") header.
     if (sheetNames.length) {
       const h = await readSheetHeaderRow(z, wbXml, relsXml, sheetNames[0], 1, 12);
       const texts = h ? Object.values(h.cells).map(String) : [];
@@ -2092,10 +3347,6 @@ return { resolveSheetXml, resolveSharedStrings, runBillingPipeline, runStockStat
         const result = await classifyFile(file);
         items.push({ file, slot: result.slot, reason: result.reason });
       }
-      // if several files land on the same slot (e.g. two Sheet0 files),
-      // keep only the first classified for that slot and flag the rest --
-      // silently overwriting one with the other is exactly the kind of
-      // silent-wrong-data bug this session exists to stop.
       const used = new Set();
       for (const it of items) {
         if (!it.slot) continue;
@@ -2111,14 +3362,33 @@ return { resolveSheetXml, resolveSharedStrings, runBillingPipeline, runStockStat
     });
   }
 
-  // today's date, local time, as the default CW-anchor picker value
+  // 기준 날짜: 오늘이 기본값. 고르면 CW 를 바로 보여준다.
+  const WD = ["일", "월", "화", "수", "목", "금", "토"];
+  const cwBig = el("cw-big"), cwSub = el("cw-sub"), dateWarn = el("date-warn");
+  function updateCwDisplay() {
+    const d = parseLocalDate(fCwDate.value);
+    if (!d) { cwBig.textContent = "CW--"; dateWarn.textContent = ""; return; }
+    const wk = PL.isoWeekInfo(d).week;
+    const mon = new Date(d.getFullYear(), d.getMonth(), d.getDate() - ((d.getDay() + 6) % 7));
+    cwBig.textContent = "CW" + wk + " (" + (d.getMonth() + 1) + "/" + d.getDate() + " " + WD[d.getDay()] + ")";
+    cwSub.textContent = "이번 주 월요일 " + (mon.getMonth() + 1) + "/" + mon.getDate() + " 기준으로 SAP·스냅샷·빌링에 적용됩니다";
+    const gap = Math.round(Math.abs(Date.now() - d.getTime()) / 86400000);
+    dateWarn.textContent = gap > 14 ? "⚠ 오늘과 " + gap + "일 차이납니다. 날짜가 맞는지 확인해주세요." : "";
+  }
   try {
     const now = new Date();
-    const yyyy = now.getFullYear(),
-      mm = String(now.getMonth() + 1).padStart(2, "0"),
-      dd = String(now.getDate()).padStart(2, "0");
-    fCwDate.value = yyyy + "-" + mm + "-" + dd;
+    fCwDate.value = now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, "0") + "-" + String(now.getDate()).padStart(2, "0");
   } catch (e) {}
+  fCwDate.addEventListener("change", updateCwDisplay);
+  fCwDate.addEventListener("input", updateCwDisplay);
+
+  function parseLocalDate(value) {
+    if (!value) return null;
+    const [yy, mm, dd] = value.split("-").map(Number);
+    return new Date(yy, mm - 1, dd);
+  }
+
+  updateCwDisplay();
 
   let liveMasterZip = null,
     liveStockZip = null,
@@ -2156,173 +3426,133 @@ return { resolveSheetXml, resolveSharedStrings, runBillingPipeline, runStockStat
     return typeof n === "number" ? n.toLocaleString("ko-KR") : n;
   }
 
-  function renderResults({ billingResult, stockResult, sellinResult, psiSapResult, fhResult, coverageGaps }) {
-    const parts = [];
+  const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const serialLabel = (s) => {
+    const d = XP.excelSerialToUTCDate(s);
+    return (d.getUTCMonth() + 1) + "/" + d.getUTCDate() + "(" + WD[d.getUTCDay()] + ")";
+  };
 
-    if (billingResult) {
-      parts.push(
-        '<div class="stat-line"><span class="dot blue"></span><b>빌링Raw</b>&nbsp;— ' +
-          fmt(billingResult.rowsWritten) +
-          "행 반영 완료 (원본 " +
-          fmt(billingResult.rawRowCount) +
-          "행)</div>"
-      );
-      if (billingResult.skippedNoTemplateRow.length) {
-        parts.push(
-          '<div class="stat-line"><span class="dot red"></span>템플릿에 행이 없어 반영 못한 raw 행 ' +
-            billingResult.skippedNoTemplateRow.length +
-            "개 (마스터 빌링Raw 시트 행 수를 늘려야 함)</div>"
-        );
-      }
+  // 결과: 확인이 필요한 것을 맨 위에, 정상 처리 내역은 접어 둔다.
+  function renderResults(res) {
+    const attn = []; // {title, items[]}
+    const ok = [];   // 문자열
+    const add = (title, items) => { if (items && items.length) attn.push({ title, items }); };
+
+    add("확인 필요 — 일반", res.warnings);
+    if (res.mrIssues && res.mrIssues.length) add("MR 계산", res.mrIssues);
+
+    if (res.freeze) for (const s of res.freeze.sources) {
+      if (s.status === "frozen") ok.push("지난 주차 고정(" + s.label + ") " + s.weeks + " · " + fmt(s.cells) + "셀");
+      else if (s.status === "skipped") add("지난 주차 고정 건너뜀", [s.label + ": " + s.reason]);
     }
 
-    if (stockResult) {
-      const s = stockResult.stats;
-      parts.push(
-        '<div class="stat-line"><span class="dot blue"></span><b>Stock Status</b>&nbsp;— 자동채움 ' +
-          s.filled +
-          " · 수기입력대상 " +
-          s.skippedManual +
-          " · 소스없음 " +
-          s.missingBoth +
-          "</div>"
-      );
-      const errorRows = stockResult.report.filter((r) => r.sourceErrors && r.sourceErrors.length);
-      const missingRows = stockResult.report.filter((r) => r.status === "missing");
-      if (missingRows.length || errorRows.length) {
-        let list = '<div class="issue-list">';
-        for (const r of missingRows) {
-          list += '<div class="item"><b>' + r.mcode + "</b> (" + r.ucode + ") — 행 " + r.row + ": 마스터/오더_선적 모두 매칭 실패, 소스 없음</div>";
-        }
-        for (const r of errorRows) {
-          list +=
-            '<div class="item"><b>' +
-            r.mcode +
-            "</b> (" +
-            r.ucode +
-            ") — 행 " +
-            r.row +
-            ": " +
-            r.sourceErrors.join(",") +
-            "열은 마스터 원본 수식이 오류(#VALUE! 등) 상태라 값을 못 채움 — 마스터를 엑셀에서 한번 열어 저장(재계산) 후 다시 시도해주세요</div>";
-        }
-        list += "</div>";
-        parts.push(list);
-      }
+    if (res.billing) {
+      const b = res.billing;
+      const parts = Object.entries(b.perCorp).map(([c, s]) => c + " " + fmt(s.rows) + "행·수량 " + fmt(s.qty) + (s.returns ? " (반품 " + s.returns + "건 " + fmt(s.returnQty) + " 차감)" : "") + " · " + serialLabel(s.minDate) + "~" + serialLabel(s.maxDate));
+      ok.push("빌링Raw " + fmt(b.rowsWritten) + "행 반영 — " + parts.join(" / ") + " · 실적 마감 " + serialLabel(b.cutoff) + " (원본 합계와 일치)");
+      if (res.billingPatch && res.billingPatch.weekendCells) ok.push("주말 빌링 포함 · 기준일은 입력한 날짜로 고정 (엑셀을 열어도 바뀌지 않음)");
+    }
+    if (res.psi) ok.push("PSI SAP RAW " + fmt(res.psi.rowsWritten) + "행 · 기준 " + res.psi.cwAnchor);
+    if (res.fhr) {
+      const s = res.fhr.stats;
+      ok.push("Forecast Hankook " + fmt(s.filled) + "품번 반영 · 기준 " + res.fhr.cwAnchor);
+      const items = [];
+      if (res.fhr.noMcode && res.fhr.noMcode.length) items.push("마스터 Forecast Hankook 시트 B열에 M-Code 가 없어 MR 에 반영되지 않는 품번: " + res.fhr.noMcode.join(", "));
+      if (s.rowMissing) items.push("마스터에 없는 품번 " + s.rowMissing + "개: " + res.fhr.report.filter((r) => r.status === "row_missing").slice(0, 20).map((r) => r.partNo).join(", "));
+      if (res.fhr.outOfRangeWeeks && res.fhr.outOfRangeWeeks.length) items.push("범위 밖 주차(값 못 채움): " + res.fhr.outOfRangeWeeks.join(", "));
+      add("Forecast Hankook", items);
     }
 
-    if (sellinResult) {
-      const s = sellinResult.stats;
-      parts.push(
-        '<div class="stat-line"><span class="dot blue"></span><b>Sellin</b>&nbsp;— 반영 ' +
-          fmt(s.filled) +
-          "행 · 소스 M-Code " +
-          fmt(s.sellinMcodeCount) +
-          "개 중 매칭 안 됨 " +
-          fmt(s.missing) +
-          "건" +
-          (s.corpUnmatched ? " · 법인 미매칭(합산치 사용) " + fmt(s.corpUnmatched) + "건" : "") +
-          "</div>"
-      );
-      const partialRows = sellinResult.report.filter((r) => r.status === "partial");
-      const missingRows = sellinResult.report.filter((r) => r.status === "missing");
-      const corpUnmatchedRows = sellinResult.report.filter((r) => r.status === "corp_unmatched");
-      if (missingRows.length || partialRows.length || corpUnmatchedRows.length) {
-        let list = '<div class="issue-list">';
-        for (const r of missingRows) {
-          list += '<div class="item"><b>' + r.mcode + "</b> (" + r.corp + ") — 행 " + r.row + ": Sellin 원본에 매칭되는 M-Code 없음</div>";
-        }
-        for (const r of corpUnmatchedRows) {
-          list +=
-            '<div class="item warn"><b>' +
-            r.mcode +
-            "</b> (" +
-            r.corp +
-            ") — 행 " +
-            r.row +
-            ": Sellin 원본에서 이 법인 이름을 찾지 못해 전 법인 합산치를 대신 채움 — 다른 법인 수량이 섞여 있을 수 있으니 직접 확인 필요</div>";
-        }
-        for (const r of partialRows) {
-          list +=
-            '<div class="item"><b>' +
-            r.mcode +
-            "</b> (" +
-            r.corp +
-            ") — 행 " +
-            r.row +
-            ": 템플릿에 셀이 없어 " +
-            r.skippedCols.join(",") +
-            "열은 못 채움</div>";
-        }
-        list += "</div>";
-        parts.push(list);
-      }
+    if (res.links) {
+      const L = res.links;
+      if (L.repaired) ok.push("월간 MR 연결 복구 " + fmt(L.repaired) + "셀 (오더_선적 AH~AW ← MR_순수 월합계)" + (L.ok ? " · 이미 맞던 " + fmt(L.ok) + "셀은 그대로" : ""));
+      const items = [];
+      if (L.skipped && L.skipped.length) for (const s of L.skipped.slice(0, 20)) items.push(s.key + ": " + s.reason);
+      if (L.verifyFailed) items.push("복구 후 다시 확인했을 때 맞지 않는 셀 " + L.verifyFailed + "개");
+      add("월간 MR 연결", items);
+    }
+    if (res.caches && (res.caches.weekCells || res.caches.monthCells)) ok.push("MR 계산값 갱신 — 주간 " + fmt(res.caches.weekCells) + "칸 · 월합계 " + fmt(res.caches.monthCells) + "칸 (엑셀 저장값과 달랐던 칸을 다시 계산한 값으로 맞춤)");
+    if (res.diffs && res.diffs.length) {
+      const byRow = new Map();
+      for (const d of res.diffs) { const k = d.corp + " " + d.mcode; byRow.set(k, (byRow.get(k) || 0) + 1); }
+      ok.push("다시 계산한 값이 이전 저장값과 다른 곳: " + [...byRow.entries()].slice(0, 12).map(([k, n]) => k + " " + n + "주").join(", ") + (byRow.size > 12 ? " 외 " + (byRow.size - 12) + "건" : "") + " (새 파일 반영 또는 오래된 저장값)");
     }
 
-    if (psiSapResult) {
-      parts.push(
-        '<div class="stat-line"><span class="dot blue"></span><b>PSI SAP RAW</b>&nbsp;— ' +
-          fmt(psiSapResult.rowsWritten) +
-          "행 반영 완료 (원본 " +
-          fmt(psiSapResult.rawRowCount) +
-          "행, 기준 CW " +
-          psiSapResult.cwAnchor +
-          ")</div>"
-      );
-      if (psiSapResult.skippedNoTemplateRow.length) {
-        parts.push(
-          '<div class="stat-line"><span class="dot red"></span>템플릿에 행이 없어 반영 못한 raw 행 ' +
-            psiSapResult.skippedNoTemplateRow.length +
-            "개 (마스터 PSI SAP RAW 시트 행 수를 늘려야 함)</div>"
-        );
+    if (res.sellin) {
+      const s = res.sellin.stats;
+      ok.push("Sellin 반영 " + fmt(s.filled) + "행");
+      const items = [];
+      for (const r of res.sellin.report) {
+        if (r.status === "missing") items.push(r.mcode + " (" + r.corp + ") 행 " + r.row + ": Sellin 원본에 M-Code 없음");
+        else if (r.status === "corp_unmatched") items.push(r.mcode + " (" + r.corp + ") 행 " + r.row + ": 법인 이름을 못 찾아 합산치를 채움 — 직접 확인");
       }
+      add("Sellin", items);
     }
 
-    if (fhResult) {
-      const s = fhResult.stats;
-      parts.push(
-        '<div class="stat-line"><span class="dot blue"></span><b>Forecast Hankook</b>&nbsp;— 반영 ' +
-          fmt(s.filled) +
-          "품번 · 마스터에 없는 품번 " +
-          fmt(s.rowMissing) +
-          "개" +
-          (s.outOfRangeWeekCount ? " · 마스터 주차범위 밖이라 반영 못한 주 " + fmt(s.outOfRangeWeekCount) + "개" : "") +
-          "</div>"
-      );
-      if (fhResult.outOfRangeWeeks.length) {
-        parts.push(
-          '<div class="issue-list"><div class="item">범위 밖 주차(마스터에 해당 주차 열이 없어서 값 못 채움, 서식을 바꾸지 않기 위해 새 열은 자동으로 만들지 않음): ' +
-            fhResult.outOfRangeWeeks.join(", ") +
-            "</div></div>"
-        );
-      }
-      const rowMissingList = fhResult.report.filter((r) => r.status === "row_missing");
-      if (rowMissingList.length) {
-        let list = '<div class="issue-list">';
-        for (const r of rowMissingList.slice(0, 30)) {
-          list += '<div class="item"><b>' + r.partNo + "</b> — 마스터 Forecast Hankook 시트에 해당 품번 행이 없어 반영 못함</div>";
+    if (res.stock) {
+      const S = res.stock, st = S.stats;
+      ok.push("Stock Status 자동채움 " + fmt(st.filled) + "행");
+      if (S.stockCols) ok.push("재고 열을 이름으로 찾음 (오더_선적 " + Object.entries(S.ofCols || {}).map(([k, v]) => k + " " + v).join(" · ") + ")");
+      const items = [];
+      if (S.noMaster && S.noMaster.length) items.push("마스터에 없음 — 채우지 못함: " + S.noMaster.map((r) => "행 " + r.row + " " + r.ucode + " " + r.mcode).join(" / "));
+      if (S.dupLines && S.dupLines.length) items.push("같은 규격 줄이 둘인 곳 (둘 다 채웠으니 한 줄은 직접 삭제): " + S.dupLines.map((d) => d.corp + " " + d.mcode + " [행 " + d.rows.join("·") + "]").join(" / "));
+      {
+        const miss = new Map();
+        for (const r of S.report) if (r.status === "missing" && !(S.noMaster || []).some((n) => n.row === r.row)) {
+          const k = r.ucode + " " + r.mcode;
+          if (!miss.has(k)) miss.set(k, []);
+          miss.get(k).push(r.row);
         }
-        if (rowMissingList.length > 30) list += '<div class="item">...외 ' + (rowMissingList.length - 30) + "건</div>";
-        list += "</div>";
-        parts.push(list);
+        if (miss.size) items.push("마스터(MR_순수·오더_선적)에 이 법인·M-Code 가 없어 비워 둠: " + [...miss.entries()].map(([k, rows]) => k + " [행 " + rows.join("·") + "]").join(" / "));
       }
+      for (const r of S.report) if (r.sourceErrors && r.sourceErrors.length) items.push("행 " + r.row + " " + r.mcode + ": " + r.sourceErrors.join(",") + "열 원본이 오류 상태");
+      if (S.ttlWarnings && S.ttlWarnings.length) for (const w of S.ttlWarnings) items.push(typeof w === "string" ? w : JSON.stringify(w));
+      if (S.writeErrors && S.writeErrors.length) for (const w of S.writeErrors) items.push(typeof w === "string" ? w : JSON.stringify(w));
+      add("Stock Status", items);
     }
 
-    if (coverageGaps && coverageGaps.length) {
-      let list =
-        '<div class="issue-list"><div class="item" style="color:var(--red);font-weight:600">⚠ 20주차까지 MR 확인 안 된 항목 ' +
-        coverageGaps.length +
-        "건</div>";
-      for (const g of coverageGaps.slice(0, 30)) {
-        list += '<div class="item"><b>' + g.mcode + "</b> (" + g.corp + ") — " + g.missingWeeks.length + "주 미확인</div>";
-      }
-      if (coverageGaps.length > 30) list += '<div class="item">...외 ' + (coverageGaps.length - 30) + "건</div>";
-      list += "</div>";
-      parts.push(list);
+    if (res.keyCheck) {
+      if (res.keyCheck.problems.length) add("빌링·롤링 행 짝 확인 (고객 실적이 엉뚱한 규격에 붙을 수 있음)", res.keyCheck.problems.map((p) => "MR_순수 " + p.row + "행 " + p.corp + " " + p.mcode + ": " + p.reason));
+      else ok.push("빌링·롤링 행 짝 확인 — MR_순수 " + res.keyCheck.checked + "줄 모두 마스터의 같은 (법인, M-Code) 줄과 일치");
     }
+    if (res.snapshot) {
+      const sn = res.snapshot;
+      ok.push("MR 스냅샷 저장 — " + fmt(sn.added) + "줄 (" + (sn.replaced ? "같은 주차 " + fmt(sn.replaced) + "줄 덮어씀 · " : "") + "보관 " + sn.weeksKept + "주" + (sn.droppedWeeks.length ? " · 오래된 " + sn.droppedWeeks.join(",") + " 삭제" : "") + ")");
+    } else if (res.snapshotInfo) ok.push("MR 스냅샷은 저장하지 않음");
+    if (res.trend && res.trend.changed) ok.push("MR_추이 법인 필터에 OE Sales Team 2 추가");
+    if (res.views) ok.push("새 화면 갱신 — 'MR 추이(월별)' (규격 " + res.views.specs + "개 · 조회 " + res.views.dates + "주) · '빌링·롤링 vs 확정'" + (res.views.trend.created ? " (이번에 새로 추가됨)" : ""));
+    if (res.calcChain && res.calcChain.removed) ok.push("엑셀 계산 순서 목록 제거 (열 때 자동 재생성)");
 
-    resultBody.innerHTML = parts.join("");
+    const bannerCls = attn.length ? "check" : "ok";
+    const bannerTxt = attn.length ? "확인 필요 " + attn.reduce((n, a) => n + a.items.length, 0) + "건" : "완료";
+    let html = '<div class="banner ' + bannerCls + '">' + bannerTxt + "</div>";
+    for (const a of attn) html += '<div class="attn"><h3>' + esc(a.title) + "</h3>" + a.items.map((i) => '<div class="item">· ' + esc(i) + "</div>").join("") + "</div>";
+    html += '<details class="ok-details"' + (attn.length ? "" : " open") + "><summary>✓ 정상 처리 " + ok.length + "건 보기</summary>" + ok.map((o) => '<div class="stat-line"><span class="dot blue"></span><span>' + esc(o) + "</span></div>").join("") + "</details>";
+    resultBody.innerHTML = html;
     resultBox.classList.add("show");
+  }
+
+  function askSnapshot(info, cwLabel) {
+    return new Promise((resolve) => {
+      const m = el("snap-modal");
+      const parts = [cwLabel + " MR 전체를 스냅샷 표에 쌓습니다."];
+      if (info.exists) parts.push("⚠ 이 주차는 이미 저장돼 있습니다 (" + info.existingRows + "줄). 저장하면 마지막 것으로 덮어씁니다.");
+      parts.push("저장된 조회 주차: " + (info.weeks.length ? info.weeks.join(", ") : "없음") + " · 최대 26주 보관");
+      if (info.gapWarn) parts.push("⚠ " + info.gapWarn);
+      if (info.newerWarn) parts.push("⚠ " + info.newerWarn);
+      el("snap-msg").innerHTML = parts.map(esc).join("<br>");
+      m.classList.add("show");
+      const done = (v) => { m.classList.remove("show"); el("snap-save").onclick = el("snap-skip").onclick = el("snap-cancel").onclick = null; resolve(v); };
+      el("snap-save").onclick = () => done("save");
+      el("snap-skip").onclick = () => done("skip");
+      el("snap-cancel").onclick = () => done("cancel");
+    });
+  }
+
+  function fileNameWithCw(name, wk, suffix) {
+    const base = name.replace(/\.xlsx$/i, "");
+    const withCw = /CW\s*\d+/i.test(base) ? base.replace(/CW\s*\d+/i, "CW" + wk) : base + "_CW" + wk;
+    return withCw + suffix + ".xlsx";
   }
 
   runBtn.addEventListener("click", async () => {
@@ -2334,100 +3564,57 @@ return { resolveSheetXml, resolveSharedStrings, runBillingPipeline, runStockStat
     liveStockZip = null;
 
     const masterFile = fMaster.files[0];
-    if (!masterFile) {
-      showError("마스터 파일을 먼저 올려주세요.");
-      return;
-    }
+    if (!masterFile) { showError("마스터 파일을 먼저 올려주세요."); return; }
+    const date = parseLocalDate(fCwDate.value);
+    if (!date) { showError("기준 날짜를 입력해주세요."); return; }
+    const nlFile = fNl.files[0], esFile = fEs.files[0];
+    if ((nlFile && !esFile) || (!nlFile && esFile)) { showError("빌링 Raw 는 네덜란드와 스페인을 같이 올려야 합니다. 한쪽만 올리면 반대쪽 빌링이 비게 됩니다."); return; }
+    const fhDate = parseLocalDate(fFhDate.value) || date;
+    const wk = PL.isoWeekInfo(date).week;
 
     runBtn.disabled = true;
     try {
-      setStatus("마스터 파일 여는 중...");
+      setStatus("파일 여는 중...");
       const masterZip = await loadZip(masterFile);
-      const masterZipLike = jsZipWrapper(masterZip);
-      masterFilename = masterFile.name.replace(/\.xlsx$/i, "") + "_업데이트.xlsx";
+      const inputs = {
+        date, fhDate, pic: (fPic.value || "").trim() || "홍현제",
+        master: jsZipWrapper(masterZip),
+        nl: nlFile ? jsZipWrapper(await loadZip(nlFile)) : null,
+        es: esFile ? jsZipWrapper(await loadZip(esFile)) : null,
+        psiSap: fPsiSap.files[0] ? jsZipWrapper(await loadZip(fPsiSap.files[0])) : null,
+        fh: fFh.files[0] ? jsZipWrapper(await loadZip(fFh.files[0])) : null,
+        sellin: fSellin.files[0] ? jsZipWrapper(await loadZip(fSellin.files[0])) : null,
+        onSnapshotConfirm: (info) => { setStatus("스냅샷 저장 여부를 선택해주세요..."); return askSnapshot(info, "CW" + wk); },
+      };
+      let stockZip = null;
+      if (fStock.files[0]) { stockZip = await loadZip(fStock.files[0]); inputs.stock = jsZipWrapper(stockZip); }
 
-      let billingResult = null;
-      const nlFile = fNl.files[0],
-        esFile = fEs.files[0];
-      if (nlFile || esFile) {
-        setStatus("빌링Raw 반영 중...");
-        const rawZips = [];
-        if (nlFile) rawZips.push(jsZipWrapper(await loadZip(nlFile)));
-        if (esFile) rawZips.push(jsZipWrapper(await loadZip(esFile)));
-        billingResult = await PL.runBillingPipeline(masterZipLike, rawZips);
-        liveMasterZip = masterZip;
+      setStatus("처리 중...");
+      const res = await PL.runAll(inputs);
+      if (res.cancelled) {
+        setStatus("취소했습니다. 아무 파일도 만들지 않았습니다.");
+        resultBody.innerHTML = '<div class="banner stop">중단 — 사용자가 취소</div>';
+        resultBox.classList.add("show");
+        return;
       }
-
-      let sellinResult = null;
-      const sellinFile = fSellin.files[0];
-      if (sellinFile) {
-        setStatus("Sellin 반영 중...");
-        const sellinZipLike = jsZipWrapper(await loadZip(sellinFile));
-        sellinResult = await PL.runSellinPipeline(masterZipLike, sellinZipLike);
-        liveMasterZip = masterZip;
-      }
-
-      let psiSapResult = null;
-      const psiSapFile = fPsiSap.files[0];
-      if (psiSapFile) {
-        setStatus("PSI SAP RAW 반영 중...");
-        const psiSapZipLike = jsZipWrapper(await loadZip(psiSapFile));
-        // f-cwdate is type="date" -> "YYYY-MM-DD"; parse as a LOCAL date
-        // (not UTC) so the ISO week matches what the user actually picked,
-        // regardless of their timezone offset from UTC.
-        let cwDate = null;
-        if (fCwDate.value) {
-          const [yy, mm, dd] = fCwDate.value.split("-").map(Number);
-          cwDate = new Date(yy, mm - 1, dd);
-        }
-        psiSapResult = await PL.runPsiSapPipeline(masterZipLike, psiSapZipLike, cwDate);
-        liveMasterZip = masterZip;
-      }
-
-      let fhResult = null;
-      const fhFile = fFh.files[0];
-      if (fhFile) {
-        setStatus("Forecast Hankook 반영 중...");
-        const fhZipLike = jsZipWrapper(await loadZip(fhFile));
-        fhResult = await PL.runForecastHankookPipeline(masterZipLike, fhZipLike);
-        liveMasterZip = masterZip;
-      }
-
-      let stockResult = null;
-      const stockFile = fStock.files[0];
-      if (stockFile) {
-        setStatus("Stock Status 자동채움 중...");
-        const stockZip = await loadZip(stockFile);
-        const stockZipLike = jsZipWrapper(stockZip);
-        const picName = (fPic.value || "").trim() || "홍현제";
-        stockResult = await PL.runStockStatusPipeline(masterZipLike, stockZipLike, picName);
-        liveStockZip = stockZip;
-        stockFilename = stockFile.name.replace(/\.xlsx$/i, "") + "_자동채움.xlsx";
-      }
-
-      setStatus("20주차 MR 확인 중...");
-      const coverageGaps = await PL.checkMrCoverage(masterZipLike, 20);
-
-      renderResults({ billingResult, stockResult, sellinResult, psiSapResult, fhResult, coverageGaps });
-
-      if (liveMasterZip) dlMaster.classList.add("show");
+      liveMasterZip = masterZip;
+      masterFilename = fileNameWithCw(masterFile.name, wk, "_업데이트");
+      if (stockZip) { liveStockZip = stockZip; stockFilename = fileNameWithCw(fStock.files[0].name, wk, "_자동채움"); }
+      renderResults(res);
+      dlMaster.classList.add("show");
       if (liveStockZip) dlStock.classList.add("show");
-
-      setStatus("완료");
+      setStatus("");
     } catch (e) {
       console.error(e);
-      showError("처리 중 오류가 발생했습니다: " + (e && e.message ? e.message : String(e)));
+      resultBody.innerHTML = '<div class="banner stop">중단 — 파일을 만들지 않았습니다</div><div class="attn"><div class="item">' + esc(e && e.message ? e.message : String(e)) + "</div></div>";
+      resultBox.classList.add("show");
       setStatus("");
     } finally {
       runBtn.disabled = false;
     }
   });
 
-  // Plain-browser fallback: works in any normal web page (GitHub Pages, a
-  // local file, any host) via a throwaway <a download> + blob: URL click --
-  // no special API needed. Used whenever the Claude-artifact-only
-  // `downloads` capability (window.claude.use("downloads")) isn't present,
-  // which is the normal case once this page is hosted outside claude.ai.
+  // Plain-browser fallback: <a download> + blob: URL click.
   function browserDownloadBlob(blob, filename) {
     const url = URL.createObjectURL(blob);
     try {
@@ -2457,7 +3644,6 @@ return { resolveSheetXml, resolveSharedStrings, runBillingPipeline, runStockStat
         return;
       } catch (e) {
         if (e && e.code === "declined") return;
-        // fall through to the plain-browser fallback below rather than failing outright
       }
     }
     try {
@@ -2476,3 +3662,5 @@ return { resolveSheetXml, resolveSharedStrings, runBillingPipeline, runStockStat
 })();
 
 </script>
+</body>
+</html>
