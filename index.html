@@ -2344,14 +2344,8 @@ const SELLIN_HEADER_TEXT = {
   Confirm: "nonCyEpcConfirmQty",
   InProd: "nonCyEpcProdQty",
 };
-// 오더_선적's own column layout (destination side) is hardcoded here (same as
-// the rest of this file's 마스터/오더_선적 writers). History of insertions:
-//  - EPC was split into CY + Factory (one column inserted at old AS).
-//  - 7 columns (AX:CI coverage block) + 4 more (여유개월/주문데드라인월) inserted.
-//  - 9 monthly MR pull-through columns inserted in front of the old AO:
-//    AO->AX, AP->AY, AQ->AZ, AR->BA, AS->BB, AU->BD, AV->BE, CP->CY, CQ->CZ.
-// If 오더_선적's columns are restructured again, re-derive these (Stock Status
-// side now resolves them by header text -- see resolveOfStockCols).
+// 오더_선적 쪽 열 문자는 "기준 배치"이다. 실제 쓰기 직전에 resolveOfShift()가 헤더 이름으로
+// 실제 위치를 확인하고, 몇 칸 밀렸는지(sh)를 계산해 모든 열에 똑같이 적용한다.
 const SELLIN_MAP = [
   ["AX", "ATP"],
   ["AY", "AtDock"],
@@ -2487,7 +2481,7 @@ function scanSellinSums(sheetXml, sharedStrings, resolvedCol) {
   return { byCorpAndMcode, byMcodeOnly };
 }
 
-// Current 오더_선적 layout of the cached-value refresh chain (post +9 shift):
+// Current 오더_선적 layout of the cached-value refresh chain (기준 배치; 실제 위치는 sh()로 맞춤):
 //   BC (TTL)               = ATP+AtDock+OnWater+CY+Factory
 //   BG (가용재고/stock1)     = ATP+AtDock+OnWater+CY
 //   BH/BI                  = 소진예상시점/커버리지(주), 1단계 -- weekly engine
@@ -2571,12 +2565,11 @@ function coverageForStock(weekly, stock, leadtimeWks) {
   return { t, J, coveredWeeks, buffer, deadlineIdx, exhaustLabel, deadlineLabel, cumAtTMinus1: beforeToday };
 }
 
-function refreshDownstreamFormulaCache(ofXml, helperXml, mrXml, r, s, masterShared, nowDate) {
+function refreshDownstreamFormulaCache(ofXml, helperXml, mrXml, r, s, masterShared, nowDate, sh, mrRowIn) {
+  sh = sh || ((L) => L);
   const ttl = s.ATP + s.AtDock + s.OnWater + s.CY + s.Factory;
-  if (XP.findCell(ofXml, "BC" + r)) {
-    try {
-      ofXml = XP.refreshFormulaCache(ofXml, "BC" + r, ttl);
-    } catch (e) {}
+  if (XP.findCell(ofXml, sh("BC") + r)) {
+    try { ofXml = XP.refreshFormulaCache(ofXml, sh("BC") + r, ttl); } catch (e) {}
   }
 
   const corpCell = XP.readCell(ofXml, "B" + r, masterShared);
@@ -2585,116 +2578,109 @@ function refreshDownstreamFormulaCache(ofXml, helperXml, mrXml, r, s, masterShar
 
   const stock1 = s.ATP + s.AtDock + s.OnWater + s.CY;
   const stock2 = stock1 + s.Factory;
-  if (XP.findCell(ofXml, "BG" + r)) {
-    try {
-      ofXml = XP.refreshFormulaCache(ofXml, "BG" + r, stock1);
-    } catch (e) {}
+  if (XP.findCell(ofXml, sh("BG") + r)) {
+    try { ofXml = XP.refreshFormulaCache(ofXml, sh("BG") + r, stock1); } catch (e) {}
   }
-  if (XP.findCell(ofXml, "BL" + r)) {
-    try {
-      ofXml = XP.refreshFormulaCache(ofXml, "BL" + r, stock2);
-    } catch (e) {}
+  if (XP.findCell(ofXml, sh("BL") + r)) {
+    try { ofXml = XP.refreshFormulaCache(ofXml, sh("BL") + r, stock2); } catch (e) {}
   }
 
-  const mrRow = r - 2;
-  const weekly = mrXml ? readWeeklyDemand(mrXml, masterShared, mrRow, nowDate) : null;
+  // MR_순수 행은 (법인, M-Code)로 찾은 행을 받는다. 못 찾았으면(null) 커버리지 저장값은 건드리지 않는다 (엑셀이 열 때 재계산).
+  const mrRow = mrRowIn === undefined ? r - 2 : mrRowIn;
+  const weekly = mrXml && mrRow != null ? readWeeklyDemand(mrXml, masterShared, mrRow, nowDate) : null;
   if (weekly) {
     const cov1 = coverageForStock(weekly, stock1, lt);
     const cov2 = coverageForStock(weekly, stock2, lt);
-
     const ofEdits = [
-      ["BH", cov1.exhaustLabel],
-      ["BI", cov1.coveredWeeks],
-      ["BJ", cov1.buffer],
-      ["BK", cov1.deadlineLabel],
-      ["BM", cov2.exhaustLabel],
-      ["BN", cov2.coveredWeeks],
-      ["BO", cov2.buffer],
-      ["BP", cov2.deadlineLabel],
+      [sh("BH"), cov1.exhaustLabel], [sh("BI"), cov1.coveredWeeks], [sh("BJ"), cov1.buffer], [sh("BK"), cov1.deadlineLabel],
+      [sh("BM"), cov2.exhaustLabel], [sh("BN"), cov2.coveredWeeks], [sh("BO"), cov2.buffer], [sh("BP"), cov2.deadlineLabel],
     ];
     for (const [col, val] of ofEdits) {
       if (XP.findCell(ofXml, col + r)) {
-        try {
-          ofXml = XP.refreshFormulaCache(ofXml, col + r, val);
-        } catch (e) {}
+        try { ofXml = XP.refreshFormulaCache(ofXml, col + r, val); } catch (e) {}
       }
     }
-
     if (helperXml && XP.findCell(helperXml, "EE" + r)) {
       const helperEdits = [
-        ["D", lt],
-        ["E", weekly.t],
-        ["F", stock1],
-        ["G", stock2],
-        ["EE", cov1.cumAtTMinus1],
-        ["EF", stock1 + cov1.cumAtTMinus1],
-        ["EG", cov1.J],
-        ["EH", cov1.coveredWeeks],
-        ["EI", cov1.buffer],
-        ["EJ", cov1.deadlineIdx],
-        ["EK", cov1.exhaustLabel],
-        ["EL", cov1.deadlineLabel],
-        ["EM", stock2 + cov1.cumAtTMinus1],
-        ["EN", cov2.J],
-        ["EO", cov2.coveredWeeks],
-        ["EP", cov2.buffer],
-        ["EQ", cov2.deadlineIdx],
-        ["ER", cov2.exhaustLabel],
-        ["ES", cov2.deadlineLabel],
+        ["D", lt], ["E", weekly.t], ["F", stock1], ["G", stock2],
+        ["EE", cov1.cumAtTMinus1], ["EF", stock1 + cov1.cumAtTMinus1], ["EG", cov1.J], ["EH", cov1.coveredWeeks],
+        ["EI", cov1.buffer], ["EJ", cov1.deadlineIdx], ["EK", cov1.exhaustLabel], ["EL", cov1.deadlineLabel],
+        ["EM", stock2 + cov1.cumAtTMinus1], ["EN", cov2.J], ["EO", cov2.coveredWeeks], ["EP", cov2.buffer],
+        ["EQ", cov2.deadlineIdx], ["ER", cov2.exhaustLabel], ["ES", cov2.deadlineLabel],
       ];
       for (const [col, val] of helperEdits) {
         if (XP.findCell(helperXml, col + r)) {
-          try {
-            helperXml = XP.refreshFormulaCache(helperXml, col + r, val);
-          } catch (e) {}
+          try { helperXml = XP.refreshFormulaCache(helperXml, col + r, val); } catch (e) {}
         }
       }
     }
   }
 
-  // 오더 필요량 체인 (BX/BY read-only target figures -> CC/CD -> BR/BS/BT)
-  const bxCell = XP.readCell(ofXml, "BX" + r, masterShared);
+  // 오더 필요량 체인 (BX/BY 목표값 -> CC/CD -> BR/BS/BT), 열은 sh() 로 실제 위치에 맞춘다
+  const bxCell = XP.readCell(ofXml, sh("BX") + r, masterShared);
   const bx = bxCell.kind === "number" && Number.isFinite(bxCell.value) ? bxCell.value : null;
-  if (bx != null && XP.findCell(ofXml, "CC" + r)) {
-    try {
-      ofXml = XP.refreshFormulaCache(ofXml, "CC" + r, s.CY + s.Factory - bx);
-    } catch (e) {}
+  if (bx != null && XP.findCell(ofXml, sh("CC") + r)) {
+    try { ofXml = XP.refreshFormulaCache(ofXml, sh("CC") + r, s.CY + s.Factory - bx); } catch (e) {}
   }
-
-  const byCell = XP.readCell(ofXml, "BY" + r, masterShared);
+  const byCell = XP.readCell(ofXml, sh("BY") + r, masterShared);
   const by = byCell.kind === "number" && Number.isFinite(byCell.value) ? byCell.value : null;
-  if (by != null && XP.findCell(ofXml, "CD" + r)) {
+  if (by != null && XP.findCell(ofXml, sh("CD") + r)) {
     const cd = ttl - by;
-    try {
-      ofXml = XP.refreshFormulaCache(ofXml, "CD" + r, cd);
-    } catch (e) {}
-    if (XP.findCell(ofXml, "BR" + r)) {
-      try {
-        ofXml = XP.refreshFormulaCache(ofXml, "BR" + r, cd);
-      } catch (e) {}
+    try { ofXml = XP.refreshFormulaCache(ofXml, sh("CD") + r, cd); } catch (e) {}
+    if (XP.findCell(ofXml, sh("BR") + r)) {
+      try { ofXml = XP.refreshFormulaCache(ofXml, sh("BR") + r, cd); } catch (e) {}
       const adCell = XP.readCell(ofXml, "AD" + r, masterShared);
       const ad = adCell.kind === "number" && Number.isFinite(adCell.value) ? adCell.value : null;
       let bs = cd;
       if (ad) bs = Math.max(Math.ceil(cd / ad) * ad, cd);
-      if (XP.findCell(ofXml, "BS" + r)) {
-        try {
-          ofXml = XP.refreshFormulaCache(ofXml, "BS" + r, bs);
-        } catch (e) {}
+      if (XP.findCell(ofXml, sh("BS") + r)) {
+        try { ofXml = XP.refreshFormulaCache(ofXml, sh("BS") + r, bs); } catch (e) {}
       }
-      if (ad && XP.findCell(ofXml, "BT" + r)) {
-        try {
-          ofXml = XP.refreshFormulaCache(ofXml, "BT" + r, bs / ad);
-        } catch (e) {}
+      if (ad && XP.findCell(ofXml, sh("BT") + r)) {
+        try { ofXml = XP.refreshFormulaCache(ofXml, sh("BT") + r, bs / ad); } catch (e) {}
       }
     }
   }
   return { ofXml, helperXml };
 }
 
+// 오더_선적 재고 열을 헤더 이름으로 찾아 코드의 열 문자(AX~BE)와의 칸 차이를 구한다. 차이가 일정하지 않으면 중단.
+function resolveOfShift(ofXml, shared) {
+  const found = resolveOfStockCols(ofXml, shared);
+  const expect = { ATP: "AX", AtDock: "AY", OnWater: "AZ", CY: "BA", Factory: "BB", W0: "BD", W1: "BE" };
+  const off = colNumFromLetters(found.ATP) - colNumFromLetters(expect.ATP);
+  const bad = Object.keys(expect).filter((k) => colNumFromLetters(found[k]) - colNumFromLetters(expect[k]) !== off);
+  if (bad.length) throw new Error("오더_선적 재고 열 배치가 예상과 다릅니다 (" + bad.map((k) => k + "=" + found[k]).join(", ") + "). Sellin 반영을 중단합니다.");
+  const sh = (L) => CU.colLetter(colNumFromLetters(L) + off);
+  const ttlHdr = XP.readCell(ofXml, sh("BC") + "5", shared);
+  if (ttlHdr.kind !== "string" || normHeader(ttlHdr.value) !== "ttl") throw new Error("오더_선적 " + sh("BC") + "5 가 'TTL' 이 아닙니다. Sellin 반영을 중단합니다.");
+  // Confirm 수량 / In production 은 헤더 이름으로 직접 찾는다 (4~6행, 공백·대소문자 무시)
+  const want = { Confirm: "confirm수량", InProd: "inproduction" };
+  for (const [k, name] of Object.entries(want)) {
+    const hits = [];
+    for (const row of [4, 5, 6]) {
+      const span = XP.getRowSpan(ofXml, row);
+      if (!span) continue;
+      const cellRe = /<c r="([A-Z]+)\d+"[^>]*?(?:\/>|>[\s\S]*?<\/c>)/g;
+      let m;
+      while ((m = cellRe.exec(span.text))) {
+        const c = XP.readCell(span.text, m[1] + row, shared);
+        if (c.kind === "string" && String(c.value).replace(/\s+/g, "").toLowerCase() === name && !hits.includes(m[1])) hits.push(m[1]);
+      }
+    }
+    const label = k === "Confirm" ? "Confirm 수량" : "In production";
+    if (!hits.length) throw new Error("오더_선적 4~6행에서 '" + label + "' 헤더를 찾지 못했습니다. Sellin 반영을 중단합니다.");
+    if (hits.length > 1) throw new Error("오더_선적에 '" + label + "' 헤더가 " + hits.length + "곳(" + hits.join(",") + ") 있습니다. 어느 열인지 알 수 없어 Sellin 반영을 중단합니다.");
+    found[k] = hits[0];
+  }
+  return { off, sh, found };
+}
+
 async function runSellinPipeline(masterZip, sellinZip) {
   const { path: ofPath, xml: ofXmlOrig } = await resolveSheetXml(masterZip, "오더_선적");
   let ofXml = ofXmlOrig;
   const masterShared = await resolveSharedStrings(masterZip);
+  const { off, sh, found } = resolveOfShift(ofXml, masterShared);
   const mCellText = (xml, ref) => {
     const c = XP.readCell(xml, ref, masterShared);
     return c.kind === "missing" || c.kind === "empty" ? null : c.value;
@@ -2707,11 +2693,8 @@ async function runSellinPipeline(masterZip, sellinZip) {
   };
 
   let mrXml = null;
-  try {
-    mrXml = (await resolveSheetXml(masterZip, "MR_순수")).xml;
-  } catch (e) {}
-  let helperPath = null,
-    helperXml = null;
+  try { mrXml = (await resolveSheetXml(masterZip, "MR_순수")).xml; } catch (e) {}
+  let helperPath = null, helperXml = null;
   try {
     const helperResolved = await resolveSheetXml(masterZip, WEEKLY_HELPER_SHEET);
     helperPath = helperResolved.path;
@@ -2723,36 +2706,55 @@ async function runSellinPipeline(masterZip, sellinZip) {
   const resolvedCol = resolveSellinHeaderCols(sellinXml, sellinShared);
   const { byCorpAndMcode, byMcodeOnly } = scanSellinSums(sellinXml, sellinShared, resolvedCol);
 
-  let filled = 0,
-    missing = 0,
-    corpUnmatched = 0;
+  // Sellin 값을 쓸 오더_선적 열: 전부 헤더 이름으로 찾은 실제 위치
+  const destCol = { ATP: found.ATP, AtDock: found.AtDock, OnWater: found.OnWater, CY: found.CY, Factory: found.Factory, W: found.W0, W1: found.W1, Confirm: found.Confirm, InProd: found.InProd };
+
+  // MR_순수 (법인, M-Code) -> 행 목록 (B열 법인, J열 M-Code, 5~54행)
+  const mrRowsByKey = new Map();
+  if (mrXml) {
+    const mg = parseGrid(mrXml, masterShared);
+    for (let rr = 5; rr <= 54; rr++) {
+      const c = gstr(mg, rr, 2), m = cellKeyNum(gcell(mg, rr, 10));
+      if (!c || m == null) continue;
+      const k = c.trim() + "|" + Math.round(m);
+      if (!mrRowsByKey.has(k)) mrRowsByKey.set(k, []);
+      mrRowsByKey.get(k).push(rr);
+    }
+  }
+  const rowWarnings = [];
+
+  // 데이터 끝 행은 아래쪽 두 번째 표('법인' 헤더) 직전까지 자동으로 찾는다 (Stock Status와 같은 방식)
+  const ofEnd = ofDataEndRow(parseGrid(ofXml, masterShared));
+
+  let filled = 0, missing = 0, corpUnmatched = 0;
   const report = [];
-  for (let r = OF_DATA_ROW_START; r <= OF_DATA_ROW_END; r++) {
+  for (let r = OF_DATA_ROW_START; r <= ofEnd; r++) {
     const corp = mCellText(ofXml, "B" + r);
     const mcodeRaw = mCellNum(ofXml, "N" + r);
     if (!corp || !mcodeRaw) continue;
     const mcode = Math.round(mcodeRaw);
     let s = byCorpAndMcode.get(corp.trim() + "|" + mcode);
     let status;
-    if (s) {
-      status = "filled";
-    } else if (byMcodeOnly.has(mcode)) {
-      s = byMcodeOnly.get(mcode);
-      status = "corp_unmatched"; // 주의: 이 행은 타 법인 수량이 섞인 전체 합산치임
-      corpUnmatched++;
-    } else {
-      missing++;
-      report.push({ row: r, mcode, corp, status: "missing" });
-      continue;
-    }
+    if (s) status = "filled";
+    else if (byMcodeOnly.has(mcode)) { s = byMcodeOnly.get(mcode); status = "corp_unmatched"; corpUnmatched++; }
+    else { missing++; report.push({ row: r, mcode, corp, status: "missing" }); continue; }
     const edits = [];
     const skippedCols = [];
-    for (const [dstC, key] of SELLIN_MAP) {
-      if (XP.findCell(ofXml, dstC + r)) edits.push({ ref: dstC + r, kind: "number", value: s[key] });
-      else skippedCols.push(dstC);
+    for (const [, key] of SELLIN_MAP) {
+      const d = destCol[key];
+      if (XP.findCell(ofXml, d + r)) edits.push({ ref: d + r, kind: "number", value: s[key] });
+      else skippedCols.push(d);
     }
     if (edits.length) ofXml = XP.applyRowEdits(ofXml, r, edits);
-    const refreshed = refreshDownstreamFormulaCache(ofXml, helperXml, mrXml, r, s, masterShared);
+    // 커버리지 계산용 MR_순수 행: (법인, M-Code)로 찾는다. 예전 가정(오더_선적 n행 = MR_순수 n-2행)과 다르면 알린다.
+    const mrList = mrRowsByKey.get(corp.trim() + "|" + mcode) || [];
+    let mrRow = null;
+    if (mrList.includes(r - 2)) mrRow = r - 2;
+    else if (mrList.length) {
+      mrRow = mrList[0];
+      rowWarnings.push("오더_선적 " + r + "행 " + corp + " " + mcode + ": MR_순수에서는 " + mrList.join("·") + "행 (엑셀의 주간커버리지 수식은 " + (r - 2) + "행을 볼 수 있으니 커버리지 값을 확인하세요)");
+    } else rowWarnings.push("오더_선적 " + r + "행 " + corp + " " + mcode + ": MR_순수에 같은 규격이 없어 커버리지 저장값을 갱신하지 않음");
+    const refreshed = refreshDownstreamFormulaCache(ofXml, helperXml, mrXml, r, s, masterShared, null, sh, mrRow);
     ofXml = refreshed.ofXml;
     helperXml = refreshed.helperXml;
     filled++;
@@ -2762,8 +2764,9 @@ async function runSellinPipeline(masterZip, sellinZip) {
   await masterZip.writeText(ofPath, ofXml);
   if (helperPath && helperXml) await masterZip.writeText(helperPath, helperXml);
   return {
-    stats: { filled, missing, corpUnmatched, sellinMcodeCount: byMcodeOnly.size },
+    stats: { filled, missing, corpUnmatched, sellinMcodeCount: byMcodeOnly.size, colShift: off, atpCol: found.ATP, confirmCol: found.Confirm, inProdCol: found.InProd, lastRow: ofEnd },
     report,
+    rowWarnings,
   };
 }
 
@@ -3508,8 +3511,9 @@ return { writeViewSheets, checkBillingKeys, runAll, readSnapshotInfo, writeSnaps
 
     if (res.sellin) {
       const s = res.sellin.stats;
-      ok.push("Sellin 반영 " + fmt(s.filled) + "행");
+      ok.push("Sellin 반영 " + fmt(s.filled) + "행 (7~" + s.lastRow + "행) · ATP " + s.atpCol + "열 · Confirm 수량 " + s.confirmCol + "열 · In production " + s.inProdCol + "열 (헤더 이름으로 찾음)");
       const items = [];
+      for (const w of res.sellin.rowWarnings || []) items.push(w);
       for (const r of res.sellin.report) {
         if (r.status === "missing") items.push(r.mcode + " (" + r.corp + ") 행 " + r.row + ": Sellin 원본에 M-Code 없음");
         else if (r.status === "corp_unmatched") items.push(r.mcode + " (" + r.corp + ") 행 " + r.row + ": 법인 이름을 못 찾아 합산치를 채움 — 직접 확인");
