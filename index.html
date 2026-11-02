@@ -2655,8 +2655,8 @@ function resolveOfShift(ofXml, shared) {
   const ttlHdr = XP.readCell(ofXml, sh("BC") + "5", shared);
   if (ttlHdr.kind !== "string" || normHeader(ttlHdr.value) !== "ttl") throw new Error("오더_선적 " + sh("BC") + "5 가 'TTL' 이 아닙니다. Sellin 반영을 중단합니다.");
   // Confirm 수량 / In production 은 헤더 이름으로 직접 찾는다 (4~6행, 공백·대소문자 무시)
-  const want = { Confirm: "confirm수량", InProd: "inproduction" };
-  for (const [k, name] of Object.entries(want)) {
+  const want = { Confirm: ["confirm재고", "confirm수량"], InProd: ["inproduction"] };
+  for (const [k, names] of Object.entries(want)) {
     const hits = [];
     for (const row of [4, 5, 6]) {
       const span = XP.getRowSpan(ofXml, row);
@@ -2665,10 +2665,10 @@ function resolveOfShift(ofXml, shared) {
       let m;
       while ((m = cellRe.exec(span.text))) {
         const c = XP.readCell(span.text, m[1] + row, shared);
-        if (c.kind === "string" && String(c.value).replace(/\s+/g, "").toLowerCase() === name && !hits.includes(m[1])) hits.push(m[1]);
+        if (c.kind === "string" && names.includes(String(c.value).replace(/\s+/g, "").toLowerCase()) &&!hits.includes(m[1])) hits.push(m[1]);
       }
     }
-    const label = k === "Confirm" ? "Confirm 수량" : "In production";
+    const label = k === "Confirm" ? "Confirm 재고" : "In Production";
     if (!hits.length) throw new Error("오더_선적 4~6행에서 '" + label + "' 헤더를 찾지 못했습니다. Sellin 반영을 중단합니다.");
     if (hits.length > 1) throw new Error("오더_선적에 '" + label + "' 헤더가 " + hits.length + "곳(" + hits.join(",") + ") 있습니다. 어느 열인지 알 수 없어 Sellin 반영을 중단합니다.");
     found[k] = hits[0];
@@ -2726,6 +2726,12 @@ async function runSellinPipeline(masterZip, sellinZip) {
   // 데이터 끝 행은 아래쪽 두 번째 표('법인' 헤더) 직전까지 자동으로 찾는다 (Stock Status와 같은 방식)
   const ofEnd = ofDataEndRow(parseGrid(ofXml, masterShared));
 
+  const ttlCol = sh("BC"); // resolveOfShift 에서 5행 'TTL' 헤더인지 확인한 열
+  const ofG0 = parseGrid(ofXml, masterShared);
+  const isBlankHdr = (col) => [4, 5, 6].every((rr) => { const x = gcell(ofG0, rr, colNumFromLetters(col)); return !x || x.kind === "empty" || (x.kind === "string" && x.value.trim() === ""); });
+  const spacerCols = [CU.colLetter(colNumFromLetters(found.W1) + 1), CU.colLetter(colNumFromLetters(found.InProd) + 1)].filter(isBlankHdr);
+  let ttlRepaired = 0, spacerCleared = 0;
+
   let filled = 0, missing = 0, corpUnmatched = 0;
   const report = [];
   for (let r = OF_DATA_ROW_START; r <= ofEnd; r++) {
@@ -2746,6 +2752,24 @@ async function runSellinPipeline(masterZip, sellinZip) {
       else skippedCols.push(d);
     }
     if (edits.length) ofXml = XP.applyRowEdits(ofXml, r, edits);
+    // TTL 칸이 수식이 아니라 값으로 굳어 있으면 TTL 수식(ATP+AT DOCK+On Water+CY+Factory)으로 되돌린다
+    {
+      const tRef = ttlCol + r, tc = XP.findCell(ofXml, tRef);
+      if (tc && !/<f[\s>\/]/.test(tc.match)) {
+        const st = (tc.attrs.match(/\s+s="[^"]*"/) || [""])[0];
+        const f = [found.ATP, found.AtDock, found.OnWater, found.CY, found.Factory].map((c) => c + r).join("+");
+        const v = s.ATP + s.AtDock + s.OnWater + s.CY + s.Factory;
+        const span = XP.getRowSpan(ofXml, r), c2 = XP.findCell(span.text, tRef);
+        const nt = span.text.slice(0, c2.index) + '<c r="' + tRef + '"' + st + "><f>" + f + "</f><v>" + v + "</v></c>" + span.text.slice(c2.index + c2.match.length);
+        ofXml = ofXml.slice(0, span.index) + nt + ofXml.slice(span.index + span.length);
+        ttlRepaired++;
+      }
+      // 헤더 없는 빈 열(W+1 오른쪽, In Production 오른쪽)에 예전 버그로 들어간 숫자를 지운다
+      for (const sp of spacerCols) {
+        const cc = XP.readCell(ofXml, sp + r, masterShared);
+        if (cc.kind === "number") { ofXml = XP.applyRowEdits(ofXml, r, [{ ref: sp + r, kind: "number", value: null }]); spacerCleared++; }
+      }
+    }
     // 커버리지 계산용 MR_순수 행: (법인, M-Code)로 찾는다. 예전 가정(오더_선적 n행 = MR_순수 n-2행)과 다르면 알린다.
     const mrList = mrRowsByKey.get(corp.trim() + "|" + mcode) || [];
     let mrRow = null;
@@ -2764,7 +2788,7 @@ async function runSellinPipeline(masterZip, sellinZip) {
   await masterZip.writeText(ofPath, ofXml);
   if (helperPath && helperXml) await masterZip.writeText(helperPath, helperXml);
   return {
-    stats: { filled, missing, corpUnmatched, sellinMcodeCount: byMcodeOnly.size, colShift: off, atpCol: found.ATP, confirmCol: found.Confirm, inProdCol: found.InProd, lastRow: ofEnd },
+    stats: { filled, missing, corpUnmatched, sellinMcodeCount: byMcodeOnly.size, colShift: off, atpCol: found.ATP, confirmCol: found.Confirm, inProdCol: found.InProd, lastRow: ofEnd, ttlRepaired, spacerCleared },
     report,
     rowWarnings,
   };
@@ -3513,6 +3537,8 @@ return { writeViewSheets, checkBillingKeys, runAll, readSnapshotInfo, writeSnaps
       const s = res.sellin.stats;
       ok.push("Sellin 반영 " + fmt(s.filled) + "행 (7~" + s.lastRow + "행) · ATP " + s.atpCol + "열 · Confirm 수량 " + s.confirmCol + "열 · In production " + s.inProdCol + "열 (헤더 이름으로 찾음)");
       const items = [];
+      if (s.ttlRepaired) ok.push("TTL 수식 복구 " + s.ttlRepaired + "칸 (값으로 굳어 있던 칸)");
+      if (s.spacerCleared) ok.push("빈 열에 잘못 들어가 있던 숫자 " + s.spacerCleared + "칸 정리");
       for (const w of res.sellin.rowWarnings || []) items.push(w);
       for (const r of res.sellin.report) {
         if (r.status === "missing") items.push(r.mcode + " (" + r.corp + ") 행 " + r.row + ": Sellin 원본에 M-Code 없음");
